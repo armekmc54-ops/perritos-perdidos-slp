@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Perritos o Animales Perdidos - San Luis Potosí",
     description: "Plataforma comunitaria para reportar, rescatar y encontrar mascotas perdidas en San Luis Potosí.",
-    url: "https://frontend-three-murex-64.vercel.app",
+    url: "https://perritos-perdidos-slp.vercel.app",
     siteName: "Perritos o Animales Perdidos",
     images: [
       {
