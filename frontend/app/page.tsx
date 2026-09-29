@@ -133,9 +133,11 @@ export default function Home() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('arena');
+  const [isMounted, setIsMounted] = useState(false);
 
   // Inicializar tema visual desde localStorage con salvaguarda para Safari
   useEffect(() => {
+    setIsMounted(true);
     try {
       const savedTheme = localStorage.getItem('pps-theme') || 'arena';
       setCurrentTheme(savedTheme);
@@ -803,29 +805,36 @@ export default function Home() {
             mobileTab === 'map' ? 'block' : 'hidden lg:block'
           }`}
         >
-          <Map
-            reports={filteredReports}
-            selectedReportId={selectedReportId}
-            onSelectReport={handleMapMarkerClick}
-            onDeselectReport={handleDeselectMap}
-            zoom={mapZoom}
-            centerCoords={mapCenter}
-            onOpenMessageModal={(report) => handleOpenSendMessage(report)}
-            triangulationData={triangulationData}
-            onExitTriangulation={() => setTriangulationData(null)}
-            isPickingLocation={isPickingOnMap}
-            pickedLocation={
-              isPickingOnMap
-                ? { latitude: formData.latitude, longitude: formData.longitude }
-                : null
-            }
-            onLocationPicked={(lat, lng) => {
-              setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
-              setIsPickingOnMap(false);
-              setIsModalOpen(true);
-            }}
-            activeTab={mobileTab}
-          />
+          {isMounted && (mobileTab === 'map' || (typeof window !== 'undefined' && window.innerWidth >= 1024)) ? (
+            <Map
+              reports={filteredReports}
+              selectedReportId={selectedReportId}
+              onSelectReport={handleMapMarkerClick}
+              onDeselectReport={handleDeselectMap}
+              zoom={mapZoom}
+              centerCoords={mapCenter}
+              onOpenMessageModal={(report) => handleOpenSendMessage(report)}
+              triangulationData={triangulationData}
+              onExitTriangulation={() => setTriangulationData(null)}
+              isPickingLocation={isPickingOnMap}
+              pickedLocation={
+                isPickingOnMap
+                  ? { latitude: formData.latitude, longitude: formData.longitude }
+                  : null
+              }
+              onLocationPicked={(lat, lng) => {
+                setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+                setIsPickingOnMap(false);
+                setIsModalOpen(true);
+              }}
+              activeTab={mobileTab}
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-carbon/60">
+              <span className="text-3xl animate-bounce mb-2">🗺️</span>
+              <p className="font-semibold text-sm">Cargando mapa interactivo...</p>
+            </div>
+          )}
         </div>
 
         {/* Feed de Reportes Reales */}

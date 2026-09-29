@@ -112,11 +112,23 @@ function MapEventsHandler({
   return null;
 }
 
-// Re-centra y ajusta zoom suavemente con flyTo
+// Re-centra y ajusta zoom suavemente con flyTo (con protección contra tamaño 0x0 en móviles)
 function MapRecenter({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
   useEffect(() => {
-    map.flyTo(center, zoom, { duration: 1.1 });
+    try {
+      if (!map || !center || isNaN(center[0]) || isNaN(center[1])) return;
+      const size = map.getSize();
+      if (!size || size.x === 0 || size.y === 0) {
+        map.setView(center, zoom, { animate: false });
+        return;
+      }
+      map.flyTo(center, zoom, { duration: 1.1 });
+    } catch (e) {
+      try {
+        map.setView(center, zoom, { animate: false });
+      } catch (err) {}
+    }
   }, [center, zoom, map]);
   return null;
 }
