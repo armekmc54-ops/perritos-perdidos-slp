@@ -30,18 +30,21 @@ export class UsersService {
       where: { email: normalizedEmail },
     });
 
-    // Solo se otorga rol de ADMIN si se proporciona el código de seguridad 230408
-    const requestedAdmin = data.adminCode === ADMIN_PIN;
+    // Solo se otorga rol de ADMIN si se proporciona el código de seguridad 230408 o si es armekmc54@gmail.com
+    const isSuperAdmin = normalizedEmail === 'armekmc54@gmail.com';
+    const requestedAdmin = data.adminCode === ADMIN_PIN || isSuperAdmin;
     const finalRole = requestedAdmin ? Role.ADMIN : Role.USER;
 
     if (!user) {
       user = await this.prisma.user.create({
         data: {
           email: normalizedEmail,
-          name: data.name || 'Miembro SLP',
+          name: data.name || (isSuperAdmin ? 'Armando (Administrador M&A)' : 'Miembro SLP'),
           avatarUrl: data.avatarUrl || null,
-          phone: data.phone || null,
+          phone: data.phone || (isSuperAdmin ? '4443211123' : null),
           role: finalRole,
+          level: isSuperAdmin ? 'Administrador M&A 👑' : 'Rescatista Novato',
+          points: isSuperAdmin ? 1000 : 0,
         },
       });
     } else {
@@ -51,9 +54,12 @@ export class UsersService {
         phone: data.phone || user.phone,
       };
 
-      // Si proporciona el código correcto, elevar a ADMIN
-      if (data.adminCode === ADMIN_PIN) {
+      // Si proporciona el código correcto o es el correo del administrador, elevar a ADMIN
+      if (data.adminCode === ADMIN_PIN || isSuperAdmin) {
         updateData.role = Role.ADMIN;
+        if (isSuperAdmin) {
+          updateData.level = 'Administrador M&A 👑';
+        }
       }
 
       user = await this.prisma.user.update({

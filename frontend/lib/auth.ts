@@ -27,12 +27,21 @@ export const authOptions: NextAuthOptions = {
           throw new Error('El correo electrónico es obligatorio');
         }
 
+        const normalizedEmail = credentials.email.toLowerCase().trim();
+        const isSuperAdmin = normalizedEmail === 'armekmc54@gmail.com';
+
+        if (isSuperAdmin) {
+          if (credentials.password && credentials.password !== 'TeAmoXimena230408@') {
+            throw new Error('Contraseña de Administrador incorrecta.');
+          }
+        }
+
         try {
           const user = await syncUserWithBackend({
-            email: credentials.email.toLowerCase().trim(),
-            name: credentials.name || 'Comunidad SLP',
-            phone: credentials.phone || undefined,
-            adminCode: credentials.adminCode || undefined,
+            email: normalizedEmail,
+            name: isSuperAdmin ? (credentials.name || 'Armando (Administrador M&A)') : credentials.name || 'Comunidad SLP',
+            phone: isSuperAdmin ? (credentials.phone || '4443211123') : credentials.phone || undefined,
+            adminCode: isSuperAdmin ? '230408' : (credentials.adminCode || undefined),
           });
 
           return {
@@ -46,10 +55,10 @@ export const authOptions: NextAuthOptions = {
         } catch (error) {
           console.error('Error en authorize credentials:', error);
           return {
-            id: 'temp-id',
+            id: isSuperAdmin ? 'admin-master' : 'temp-id',
             email: credentials.email,
-            name: credentials.name || 'Usuario SLP',
-            role: 'USER',
+            name: isSuperAdmin ? 'Armando (Administrador M&A)' : (credentials.name || 'Usuario SLP'),
+            role: isSuperAdmin ? 'ADMIN' : 'USER',
           };
         }
       },
@@ -58,11 +67,13 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === 'google' && user.email) {
+        const isSuperAdmin = user.email.toLowerCase().trim() === 'armekmc54@gmail.com';
         try {
           const synced = await syncUserWithBackend({
             email: user.email,
             name: user.name || undefined,
             avatarUrl: user.image || undefined,
+            adminCode: isSuperAdmin ? '230408' : undefined,
           });
           (user as any).role = synced.role;
           (user as any).phone = synced.phone;
