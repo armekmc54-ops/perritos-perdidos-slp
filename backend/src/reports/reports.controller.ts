@@ -64,8 +64,9 @@ export class ReportsController {
   update(
     @Param('id') id: string,
     @Body() updateDto: Partial<CreateReportDto>,
+    @Query('requesterEmail') requesterEmail?: string,
   ) {
-    return this.reportsService.update(id, updateDto);
+    return this.reportsService.update(id, updateDto, requesterEmail || updateDto.userEmail);
   }
 
   @Delete(':id')

@@ -409,11 +409,41 @@ export class ReportsService {
     );
   }
 
-  // Actualizar datos de un reporte
-  async update(id: string, data: Partial<CreateReportDto>) {
-    const exists = await this.prisma.report.findUnique({ where: { id } });
+  // Actualizar datos de un reporte (con validación de permisos y soporte hasta 3 imágenes)
+  async update(id: string, data: Partial<CreateReportDto>, requesterEmail?: string) {
+    const exists = await this.prisma.report.findUnique({
+      where: { id },
+      include: { user: true },
+    });
     if (!exists) {
       throw new NotFoundException(`Reporte con ID ${id} no encontrado`);
+    }
+
+    const emailToCheck = requesterEmail || data.userEmail;
+    if (emailToCheck) {
+      const requester = await this.prisma.user.findUnique({
+        where: { email: emailToCheck.toLowerCase().trim() },
+      });
+
+      if (!requester) {
+        throw new UnauthorizedException('Usuario no registrado.');
+      }
+
+      const isOwner = exists.userId === requester.id || exists.user?.email.toLowerCase() === requester.email.toLowerCase();
+      const isAdmin = requester.role === Role.ADMIN || requester.email.toLowerCase() === 'armekmc54@gmail.com';
+
+      if (!isOwner && !isAdmin) {
+        throw new ForbiddenException('No tienes permisos para modificar este reporte.');
+      }
+    }
+
+    // Manejo de fotografías (hasta 3 fotos completas almacenadas como JSON o URL directa)
+    let finalMediaUrl = data.mediaUrl;
+    if (data.images && Array.isArray(data.images) && data.images.length > 0) {
+      const cleanImages = data.images.filter((img) => typeof img === 'string' && img.trim().length > 0).slice(0, 3);
+      if (cleanImages.length > 0) {
+        finalMediaUrl = cleanImages.length === 1 ? cleanImages[0] : JSON.stringify(cleanImages);
+      }
     }
 
     return this.prisma.report.update({
@@ -425,11 +455,37 @@ export class ReportsService {
         ...(data.contactPhone !== undefined && { contactPhone: data.contactPhone }),
         ...(data.reward !== undefined && { reward: data.reward ? Number(data.reward) : null }),
         ...(data.status !== undefined && { status: data.status }),
+        ...(data.type !== undefined && { type: data.type }),
         ...(data.species !== undefined && { species: data.species }),
         ...(data.breed !== undefined && { breed: data.breed }),
         ...(data.primaryColor !== undefined && { primaryColor: data.primaryColor }),
         ...(data.size !== undefined && { size: data.size }),
         ...(data.aiTags !== undefined && { aiTags: data.aiTags }),
+        ...(finalMediaUrl !== undefined && { mediaUrl: finalMediaUrl }),
+        ...(data.latitude !== undefined && { latitude: Number(data.latitude) }),
+        ...(data.longitude !== undefined && { longitude: Number(data.longitude) }),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+            role: true,
+            points: true,
+            level: true,
+          },
+        },
+        resolvedByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        pointTransactions: true,
       },
     });
   }

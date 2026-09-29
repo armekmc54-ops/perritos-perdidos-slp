@@ -30,6 +30,7 @@ interface ProfileModalProps {
   onReportUpdated?: (report: Report) => void;
   onReportDeleted?: (reportId: string) => void;
   onTriangulateReport?: (lostReport: Report, sightings: Report[], triangulationData?: TriangulationData) => void;
+  onEditReport?: (report: Report) => void;
   initialTab?: 'notifications' | 'reports' | 'settings';
 }
 
@@ -41,7 +42,6 @@ function formatRelativeTime(dateString: string): string {
     if (isNaN(date.getTime())) return 'Reciente';
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-
     if (diffInMinutes < 1) return 'Hace un momento';
     if (diffInMinutes < 60) return `Hace ${diffInMinutes} min`;
     const diffInHours = Math.floor(diffInMinutes / 60);
@@ -65,6 +65,7 @@ export default function ProfileModal({
   onReportUpdated,
   onReportDeleted,
   onTriangulateReport,
+  onEditReport,
   initialTab = 'notifications',
 }: ProfileModalProps) {
   const { data: session, update } = useSession();
@@ -1097,14 +1098,29 @@ export default function ProfileModal({
 
                       {/* Acciones de gestión y resolución */}
                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-theme/60 mt-1 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteUserReport(r.id, r.petName || r.title)}
-                          className="bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white border border-red-500/30 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-xs"
-                          title="Eliminar este reporte permanentemente"
-                        >
-                          <span>🗑️</span> Eliminar reporte
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          {onEditReport && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onEditReport(r);
+                                onClose();
+                              }}
+                              className="bg-paliacate/10 hover:bg-paliacate text-paliacate hover:text-white border border-paliacate/30 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                              title="Editar datos, fotos o recompensa de mi reporte"
+                            >
+                              <span>✏️</span> Editar
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUserReport(r.id, r.petName || r.title)}
+                            className="bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white border border-red-500/30 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                            title="Eliminar este reporte permanentemente"
+                          >
+                            <span>🗑️</span> Eliminar
+                          </button>
+                        </div>
 
                         {r.status === 'ACTIVE' && (
                           <button

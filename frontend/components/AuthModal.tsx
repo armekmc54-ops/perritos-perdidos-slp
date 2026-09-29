@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { registerUser, resetPassword } from '../services/api';
+import { registerUser, resetPassword, requestResetCode } from '../services/api';
 import TermsModal from './TermsModal';
 
 interface AuthModalProps {
@@ -36,6 +36,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   // Campos para Recuperar Contraseña
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotPhone, setForgotPhone] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [resetStep, setResetStep] = useState<'request' | 'verify'>('request');
+  const [resetCodeNotice, setResetCodeNotice] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
@@ -165,20 +168,67 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     }
   };
 
-  // 3. RECUPERAR / RESTABLECER CONTRASEÑA
-  const handleForgotSubmit = async (e: React.FormEvent) => {
+  // 3. RECUPERAR / RESTABLECER CONTRASEÑA EN 2 PASOS CON VERIFICACIÓN OTP
+  const handleRequestResetCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setResetSuccessMsg(null);
 
     const emailTrimmed = forgotEmail.trim().toLowerCase();
+    const phoneTrimmed = forgotPhone.trim();
 
-    if (!emailTrimmed || !forgotPhone.trim() || !newPassword.trim() || !confirmNewPassword.trim()) {
-      setErrorMsg('Por favor llena todos los campos.');
+    if (emailTrimmed === 'armekmc54@gmail.com') {
+      setErrorMsg('🔒 Por seguridad institucional, la cuenta de Administrador Maestro está blindada contra modificaciones.');
       return;
     }
 
-    if (newPassword.length < 4) {
+    if (!emailTrimmed || !phoneTrimmed) {
+      setErrorMsg('Por favor ingresa tu correo y tu teléfono registrado para verificar tu identidad.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await requestResetCode({
+        email: emailTrimmed,
+        phone: phoneTrimmed,
+      });
+
+      setResetStep('verify');
+      if (res.code) {
+        setResetCode(res.code);
+        setResetCodeNotice(`🔐 Código de seguridad de un solo uso generado: ${res.code}`);
+      } else {
+        setResetCodeNotice('Revisa tu correo electrónico para obtener tu código de 6 dígitos.');
+      }
+      setResetSuccessMsg('¡Identidad validada! Ingresa el código de 6 dígitos para crear tu nueva contraseña.');
+    } catch (err: any) {
+      setErrorMsg(err.message || 'No se pudo generar el código de verificación.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setResetSuccessMsg(null);
+
+    const emailTrimmed = forgotEmail.trim().toLowerCase();
+    const phoneTrimmed = forgotPhone.trim();
+    const codeTrimmed = resetCode.trim();
+
+    if (emailTrimmed === 'armekmc54@gmail.com') {
+      setErrorMsg('🔒 Por seguridad institucional, la cuenta de Administrador Maestro está protegida contra modificaciones externas.');
+      return;
+    }
+
+    if (!codeTrimmed || codeTrimmed.length !== 6) {
+      setErrorMsg('Por favor ingresa el código de verificación de 6 dígitos.');
+      return;
+    }
+
+    if (!newPassword || newPassword.length < 4) {
       setErrorMsg('La nueva contraseña debe tener al menos 4 caracteres.');
       return;
     }
@@ -192,7 +242,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     try {
       const res = await resetPassword({
         email: emailTrimmed,
-        phone: forgotPhone.trim(),
+        phone: phoneTrimmed,
+        code: codeTrimmed,
         newPassword: newPassword,
       });
 
@@ -201,7 +252,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       setLoginPassword(newPassword);
       setTimeout(() => {
         setUserView('login');
+        setResetStep('request');
         setResetSuccessMsg(null);
+        setResetCodeNotice(null);
+        setResetCode('');
+        setNewPassword('');
+        setConfirmNewPassword('');
       }, 2500);
     } catch (err: any) {
       setErrorMsg(err.message || 'No se pudo restablecer la contraseña.');
@@ -262,10 +318,15 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         redirect: false,
         email: 'armekmc54@gmail.com',
         adminCode: adminPin.trim(),
-        password: 'TeAmoXimena230408@',
       });
 
-      if (!res?.error) {
+      if (res?.error) {
+        if (res.error === 'CredentialsSignin') {
+          setErrorMsg('Código PIN de Administrador incorrecto.');
+        } else {
+          setErrorMsg(res.error);
+        }
+      } else {
         setAdminPin('');
         onClose();
         if (onSuccess) {
@@ -273,8 +334,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         } else {
           window.location.reload();
         }
-      } else {
-        setErrorMsg('PIN de administrador incorrecto.');
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Error al validar PIN.');
@@ -618,127 +677,173 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                 </form>
               )}
 
-              {/* SUB-VISTA C: RECUPERAR CONTRASEÑA */}
+              {/* SUB-VISTA C: RECUPERAR CONTRASEÑA EN 2 PASOS */}
               {userView === 'forgot' && (
-                <form onSubmit={handleForgotSubmit} className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-2.5">
                   <div className="flex justify-between items-center mb-0.5">
-                    <h3 className="font-bold text-sm text-theme-main">Recuperar Contraseña</h3>
+                    <h3 className="font-bold text-sm text-theme-main">
+                      {resetStep === 'request' ? 'Recuperar Contraseña (Paso 1/2)' : 'Validar Identidad (Paso 2/2)'}
+                    </h3>
                     <button
                       type="button"
                       onClick={() => {
                         setUserView('login');
+                        setResetStep('request');
                         setErrorMsg(null);
+                        setResetCodeNotice(null);
                       }}
                       className="text-xs text-theme-muted hover:text-theme-main cursor-pointer"
                     >
-                      ← Volver
+                      ← Cancelar
                     </button>
                   </div>
 
-                  <p className="text-[11px] text-theme-muted">
-                    Ingresa tu correo y el teléfono registrado en tu cuenta para validar tu identidad y crear tu nueva contraseña.
-                  </p>
+                  {resetStep === 'request' ? (
+                    <form onSubmit={handleRequestResetCode} className="flex flex-col gap-2.5">
+                      <p className="text-[11px] text-theme-muted">
+                        Ingresa el correo y teléfono registrados en tu cuenta para enviarte un código de seguridad de 6 dígitos.
+                      </p>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-theme-muted mb-1">Correo Registrado *</label>
-                    <input
-                      type="email"
-                      required
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      value={forgotEmail}
-                      onChange={(e) => setForgotEmail(e.target.value)}
-                      placeholder="tu-correo@ejemplo.com"
-                      className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-theme-muted mb-1">Teléfono Registrado *</label>
-                    <input
-                      type="tel"
-                      required
-                      value={forgotPhone}
-                      onChange={(e) => setForgotPhone(e.target.value)}
-                      placeholder="El teléfono asociado a tu cuenta"
-                      className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main font-mono"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-bold text-theme-muted mb-1">Nueva Contraseña *</label>
-                      <div className="relative">
+                      <div>
+                        <label className="block text-[11px] font-bold text-theme-muted mb-1">Correo Registrado *</label>
                         <input
-                          type={showForgotNewPassword ? 'text' : 'password'}
+                          type="email"
                           required
                           autoCapitalize="none"
                           autoCorrect="off"
                           spellCheck={false}
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="Nueva contraseña"
-                          className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-8 text-xs outline-none focus:border-paliacate text-theme-main"
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          placeholder="tu-correo@ejemplo.com"
+                          className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-main text-xs p-1 cursor-pointer"
-                          title={showForgotNewPassword ? 'Ocultar' : 'Ver'}
-                        >
-                          {showForgotNewPassword ? '🙈' : '👁️'}
-                        </button>
                       </div>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-theme-muted mb-1">Confirmar Nueva *</label>
-                      <div className="relative">
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-theme-muted mb-1">Teléfono Registrado *</label>
                         <input
-                          type={showForgotConfirmPassword ? 'text' : 'password'}
+                          type="tel"
                           required
-                          autoCapitalize="none"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          value={confirmNewPassword}
-                          onChange={(e) => setConfirmNewPassword(e.target.value)}
-                          placeholder="Repite la nueva"
-                          className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-8 text-xs outline-none focus:border-paliacate text-theme-main"
+                          value={forgotPhone}
+                          onChange={(e) => setForgotPhone(e.target.value)}
+                          placeholder="El teléfono registrado en tu cuenta"
+                          className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main font-mono"
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-main text-xs p-1 cursor-pointer"
-                          title={showForgotConfirmPassword ? 'Ocultar' : 'Ver'}
-                        >
-                          {showForgotConfirmPassword ? '🙈' : '👁️'}
-                        </button>
                       </div>
-                    </div>
-                  </div>
 
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-esperanza hover:opacity-90 active:scale-95 text-white font-bold py-3 rounded-xl text-xs shadow-md transition disabled:opacity-50 mt-1 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>{isLoading ? '⏳' : '🔑'}</span>
-                    <span>{isLoading ? 'Verificando datos...' : 'Restablecer Mi Contraseña'}</span>
-                  </button>
+                      {forgotEmail.trim().toLowerCase() === 'armekmc54@gmail.com' && (
+                        <div className="p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-[11px] text-red-500 font-semibold flex items-center gap-1.5">
+                          <span>🛡️</span> La cuenta de Administrador Maestro está blindada contra modificaciones externas.
+                        </div>
+                      )}
 
-                  <div className="text-center pt-2 border-t border-theme/60 mt-0.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUserView('login');
-                        setErrorMsg(null);
-                      }}
-                      className="text-xs text-theme-muted hover:text-theme-main font-semibold cursor-pointer"
-                    >
-                      ← Regresar al Inicio de Sesión
-                    </button>
-                  </div>
-                </form>
+                      <button
+                        type="submit"
+                        disabled={isLoading || forgotEmail.trim().toLowerCase() === 'armekmc54@gmail.com'}
+                        className="w-full bg-paliacate hover:opacity-90 active:scale-95 text-white font-bold py-3 rounded-xl text-xs shadow-md transition disabled:opacity-50 mt-1 flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <span>{isLoading ? '⏳' : '📨'}</span>
+                        <span>{isLoading ? 'Generando código...' : 'Solicitar Código de 6 Dígitos'}</span>
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleResetSubmit} className="flex flex-col gap-2.5">
+                      {resetCodeNotice && (
+                        <div className="p-2.5 bg-esperanza/15 border border-esperanza/40 rounded-xl text-xs text-esperanza font-bold flex items-center gap-2">
+                          <span>🔐</span>
+                          <span>{resetCodeNotice}</span>
+                        </div>
+                      )}
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="block text-[11px] font-bold text-theme-muted">Código de Seguridad (6 dígitos) *</label>
+                          <span className="text-[10px] text-theme-muted font-mono">{forgotEmail}</span>
+                        </div>
+                        <input
+                          type="text"
+                          required
+                          maxLength={6}
+                          value={resetCode}
+                          onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
+                          placeholder="123456"
+                          className="w-full bg-theme-input border-2 border-esperanza/60 rounded-xl p-2.5 text-center text-lg font-mono font-black tracking-widest outline-none focus:border-esperanza text-theme-main"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-bold text-theme-muted mb-1">Nueva Contraseña *</label>
+                          <div className="relative">
+                            <input
+                              type={showForgotNewPassword ? 'text' : 'password'}
+                              required
+                              autoCapitalize="none"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              placeholder="Mín. 4 caracteres"
+                              className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-8 text-xs outline-none focus:border-paliacate text-theme-main"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-main text-xs p-1 cursor-pointer"
+                              title={showForgotNewPassword ? 'Ocultar' : 'Ver'}
+                            >
+                              {showForgotNewPassword ? '🙈' : '👁️'}
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-theme-muted mb-1">Confirmar Nueva *</label>
+                          <div className="relative">
+                            <input
+                              type={showForgotConfirmPassword ? 'text' : 'password'}
+                              required
+                              autoCapitalize="none"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              value={confirmNewPassword}
+                              onChange={(e) => setConfirmNewPassword(e.target.value)}
+                              placeholder="Repite la contraseña"
+                              className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-8 text-xs outline-none focus:border-paliacate text-theme-main"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-main text-xs p-1 cursor-pointer"
+                              title={showForgotConfirmPassword ? 'Ocultar' : 'Ver'}
+                            >
+                              {showForgotConfirmPassword ? '🙈' : '👁️'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full bg-esperanza hover:opacity-90 active:scale-95 text-white font-bold py-3 rounded-xl text-xs shadow-md transition disabled:opacity-50 mt-1 flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <span>{isLoading ? '⏳' : '🔑'}</span>
+                        <span>{isLoading ? 'Validando y actualizando...' : 'Actualizar Contraseña'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResetStep('request');
+                          setErrorMsg(null);
+                        }}
+                        className="text-xs text-center text-theme-muted hover:text-theme-main underline mt-1 cursor-pointer"
+                      >
+                        ← Cambiar datos o pedir nuevo código
+                      </button>
+                    </form>
+                  )}
+                </div>
               )}
 
               {/* ENLACE DISCRETO DE ADMINISTRACIÓN (NO VISIBLE COMO PESTAÑA PRINCIPAL) */}

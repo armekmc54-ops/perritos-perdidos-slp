@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
 import * as crypto from 'crypto';
@@ -30,9 +30,15 @@ export interface VerifyCredentialsDto {
   password: string;
 }
 
+export interface RequestResetCodeDto {
+  email: string;
+  phone: string;
+}
+
 export interface ResetPasswordDto {
   email: string;
   phone: string;
+  code: string;
   newPassword: string;
 }
 
@@ -44,6 +50,8 @@ export interface UpdateProfileDto {
 
 @Injectable()
 export class UsersService {
+  private resetCodes = new Map<string, { code: string; expiresAt: number; phone: string }>();
+
   constructor(private prisma: PrismaService) {}
 
   // Sincronizar o crear usuario al iniciar sesión (NextAuth)
@@ -251,17 +259,18 @@ export class UsersService {
     return user;
   }
 
-  // Recuperación / restablecimiento de contraseña mediante verificación de identidad (Correo + Teléfono)
-  async resetPassword(data: ResetPasswordDto) {
+  // Solicitar código de verificación de 6 dígitos para restablecer contraseña
+  async requestResetCode(data: RequestResetCodeDto) {
     const normalizedEmail = (data.email || '').toLowerCase().trim();
     const cleanPhone = (data.phone || '').replace(/\D/g, '');
 
-    if (!normalizedEmail || !cleanPhone) {
-      throw new BadRequestException('El correo y el teléfono son obligatorios para validar tu identidad.');
+    // BLINDAJE ABSOLUTO: El Super Admin no puede ser reseteado desde interfaz pública
+    if (normalizedEmail === 'armekmc54@gmail.com') {
+      throw new ForbiddenException('Por seguridad institucional, la cuenta de Administrador Maestro está blindada contra modificaciones externas.');
     }
 
-    if (!data.newPassword || data.newPassword.length < 4) {
-      throw new BadRequestException('La nueva contraseña debe tener al menos 4 caracteres.');
+    if (!normalizedEmail || !cleanPhone) {
+      throw new BadRequestException('El correo y el teléfono registrado son obligatorios para solicitar el código de seguridad.');
     }
 
     const user = await this.prisma.user.findUnique({
@@ -275,14 +284,75 @@ export class UsersService {
     const userCleanPhone = (user.phone || '').replace(/\D/g, '');
     if (!userCleanPhone || userCleanPhone !== cleanPhone) {
       throw new BadRequestException(
-        'El número de teléfono no coincide con el registrado en esta cuenta. Por seguridad, no se puede restablecer la contraseña.'
+        'El número de teléfono no coincide con el registrado en esta cuenta. Por seguridad, no se puede generar el código.'
       );
+    }
+
+    // Generar código numérico seguro de 6 dígitos
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutos de vigencia
+
+    this.resetCodes.set(normalizedEmail, { code, expiresAt, phone: cleanPhone });
+    console.log(`[SEGURIDAD] Código de verificación para ${normalizedEmail}: ${code}`);
+
+    return {
+      success: true,
+      message: 'Código de verificación de 6 dígitos generado exitosamente.',
+      code, // Para verificación ágil y soporte
+    };
+  }
+
+  // Recuperación / restablecimiento de contraseña mediante código OTP + teléfono + correo
+  async resetPassword(data: ResetPasswordDto) {
+    const normalizedEmail = (data.email || '').toLowerCase().trim();
+    const cleanPhone = (data.phone || '').replace(/\D/g, '');
+
+    // BLINDAJE ABSOLUTO: El Super Admin no puede ser reseteado
+    if (normalizedEmail === 'armekmc54@gmail.com') {
+      throw new ForbiddenException('Por seguridad institucional, la cuenta de Administrador Maestro está blindada contra modificaciones externas.');
+    }
+
+    if (!normalizedEmail || !cleanPhone) {
+      throw new BadRequestException('El correo y el teléfono son obligatorios para validar tu identidad.');
+    }
+
+    if (!data.code || data.code.trim().length !== 6) {
+      throw new BadRequestException('Por favor ingresa el código de verificación de 6 dígitos.');
+    }
+
+    if (!data.newPassword || data.newPassword.length < 4) {
+      throw new BadRequestException('La nueva contraseña debe tener al menos 4 caracteres.');
+    }
+
+    // Validar el código de seguridad
+    const stored = this.resetCodes.get(normalizedEmail);
+    if (!stored || Date.now() > stored.expiresAt) {
+      throw new BadRequestException('El código de verificación ha expirado o no ha sido solicitado. Por favor solicita uno nuevo.');
+    }
+
+    if (stored.code !== data.code.trim()) {
+      throw new BadRequestException('El código de verificación de 6 dígitos es incorrecto.');
+    }
+
+    if (stored.phone !== cleanPhone) {
+      throw new BadRequestException('El número de teléfono no coincide con la solicitud.');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      throw new NotFoundException('No se encontró ninguna cuenta registrada con este correo electrónico.');
     }
 
     await this.prisma.user.update({
       where: { id: user.id },
       data: { passwordHash: hashPassword(data.newPassword) },
     });
+
+    // Invalida el código de un solo uso
+    this.resetCodes.delete(normalizedEmail);
 
     return {
       success: true,

@@ -89,6 +89,32 @@ const getReportIcon = (report: Report, isSelected: boolean) => {
 
 const tempPinIcon = createCustomIcon('#EF4444', '📍', true); // Rojo Selección
 
+function MapExpandableText({ text }: { text: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  if (!text) return null;
+  const isLong = text.length > 90;
+
+  return (
+    <div className="text-xs text-gray-600 mt-1 leading-snug">
+      <p className="whitespace-pre-line">
+        {isLong && !isExpanded ? `${text.slice(0, 90).trim()}...` : text}
+      </p>
+      {isLong && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+          className="text-[11px] font-bold text-paliacate hover:underline mt-0.5 inline-block cursor-pointer"
+        >
+          {isExpanded ? 'Ver menos ▲' : 'Ver más... ▼'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Escucha clics en el lienzo del mapa
 function MapEventsHandler({
   isPicking,
@@ -462,9 +488,7 @@ export default function Map({
                   <h4 className="font-bold text-sm text-carbon leading-snug">
                     {report.petName || report.title}
                   </h4>
-                  <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                    {report.description}
-                  </p>
+                  <MapExpandableText text={report.description} />
 
                   <div className="mt-2.5 pt-2 border-t border-gray-200 flex flex-col gap-1.5">
                     {onOpenMessageModal && (

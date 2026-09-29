@@ -31,12 +31,19 @@ export const authOptions: NextAuthOptions = {
         const isSuperAdmin = normalizedEmail === 'armekmc54@gmail.com';
 
         if (isSuperAdmin) {
-          const isValidAdminSecret =
-            credentials.password === 'TeAmoXimena230408@' ||
-            credentials.adminCode === '230408';
+          let isValid = false;
+          if (credentials.adminCode) {
+            isValid = credentials.adminCode.trim() === '230408';
+          } else if (credentials.password) {
+            isValid = credentials.password === 'TeAmoXimena230408@';
+          }
 
-          if (!isValidAdminSecret) {
-            throw new Error('Contraseña o código de Administrador incorrecto.');
+          if (!isValid) {
+            throw new Error(
+              credentials.adminCode
+                ? 'Código PIN de Administrador incorrecto.'
+                : 'Contraseña de Administrador incorrecta.'
+            );
           }
 
           try {

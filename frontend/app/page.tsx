@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import {
   getReports,
   createReport,
+  updateReport,
   updateReportStatus,
   deleteReport,
   Report,
@@ -70,6 +71,33 @@ function formatRelativeTime(dateString: string): string {
   } catch (e) {
     return 'Reciente';
   }
+}
+
+// Componente de descripción expandible con botón "Ver más..." / "Ver menos"
+function ExpandableText({ text, limit = 130 }: { text: string; limit?: number }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  if (!text) return null;
+  const isLong = text.length > limit;
+
+  return (
+    <div className="mt-1.5 text-sm text-theme-muted leading-relaxed">
+      <p className="whitespace-pre-line">
+        {isLong && !isExpanded ? `${text.slice(0, limit).trim()}...` : text}
+      </p>
+      {isLong && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+          className="text-xs font-bold text-paliacate hover:underline mt-1 inline-flex items-center gap-1 cursor-pointer"
+        >
+          {isExpanded ? 'Ver menos ▲' : 'Ver más... ▼'}
+        </button>
+      )}
+    </div>
+  );
 }
 
 // Galería de imágenes completa y sin recortes para tarjetas de reporte
@@ -279,8 +307,9 @@ export default function Home() {
   // Vista en pantallas móviles: 'map' o 'list'
   const [mobileTab, setMobileTab] = useState<'map' | 'list'>('list');
 
-  // Estados del Modal de nuevo reporte
+  // Estados del Modal de nuevo reporte o edición
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingReport, setEditingReport] = useState<Report | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPickingOnMap, setIsPickingOnMap] = useState(false);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -579,7 +608,53 @@ export default function Home() {
     });
   };
 
-  // Envío del nuevo reporte al Backend
+  // Reiniciar estado del formulario
+  const resetFormState = () => {
+    setEditingReport(null);
+    setImagePreviews([]);
+    setFormData({
+      petName: '',
+      type: 'LOST',
+      species: 'DOG',
+      customSpecies: '',
+      breed: '',
+      primaryColor: '',
+      size: 'MEDIANO',
+      description: '',
+      contactPhone: '',
+      reward: '',
+      mediaUrl: '',
+      latitude: SLP_CENTER[0],
+      longitude: SLP_CENTER[1],
+    });
+  };
+
+  // Abrir modal en modo de edición de reporte
+  const handleOpenEdit = (report: Report, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditingReport(report);
+    const existingImgs = getReportImages(report.mediaUrl);
+    setImagePreviews(existingImgs);
+
+    setFormData({
+      petName: report.petName || report.title || '',
+      type: report.type,
+      species: report.species || 'DOG',
+      customSpecies: '',
+      breed: report.breed || '',
+      primaryColor: report.primaryColor || '',
+      size: report.size || 'MEDIANO',
+      description: report.description || '',
+      contactPhone: report.contactPhone || '',
+      reward: report.reward ? String(report.reward) : '',
+      mediaUrl: report.mediaUrl || '',
+      latitude: report.latitude,
+      longitude: report.longitude,
+    });
+    setIsModalOpen(true);
+  };
+
+  // Envío del nuevo reporte o actualización al Backend
   const handleSubmitReport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.description.trim()) {
@@ -611,6 +686,41 @@ export default function Home() {
           ? JSON.stringify(imagePreviews)
           : formData.mediaUrl || undefined;
 
+      // SI ESTAMOS EN MODO EDICIÓN:
+      if (editingReport) {
+        const updated = await updateReport(
+          editingReport.id,
+          {
+            title: formData.petName.trim() || defaultTitle,
+            petName: formData.petName.trim() || undefined,
+            type: formData.type,
+            species: formData.species,
+            breed: breedValue,
+            primaryColor: formData.primaryColor.trim() || undefined,
+            size: formData.size || undefined,
+            description: formData.description.trim(),
+            contactPhone: formData.contactPhone.trim() || undefined,
+            reward:
+              formData.reward && !isNaN(Number(formData.reward)) && Number(formData.reward) > 0
+                ? Number(formData.reward)
+                : null,
+            userEmail: session?.user?.email || undefined,
+            mediaUrl: mediaValue,
+            images: imagePreviews.length > 0 ? imagePreviews : undefined,
+            latitude: formData.latitude,
+            longitude: formData.longitude,
+          },
+          session?.user?.email || undefined
+        );
+
+        setReports((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+        setIsModalOpen(false);
+        resetFormState();
+        alert('🐾 ¡Publicación actualizada exitosamente!');
+        return;
+      }
+
+      // SI ES UN REPORTE NUEVO:
       const created = await createReport({
         title: formData.petName.trim() || defaultTitle,
         petName: formData.petName.trim() || undefined,
@@ -636,22 +746,7 @@ export default function Home() {
 
       // Cerramos modal y reseteamos campos
       setIsModalOpen(false);
-      setImagePreviews([]);
-      setFormData({
-        petName: '',
-        type: 'LOST',
-        species: 'DOG',
-        customSpecies: '',
-        breed: '',
-        primaryColor: '',
-        size: 'MEDIANO',
-        description: '',
-        contactPhone: '',
-        reward: '',
-        mediaUrl: '',
-        latitude: SLP_CENTER[0],
-        longitude: SLP_CENTER[1],
-      });
+      resetFormState();
 
       alert('🐾 ¡Reporte publicado con éxito! Ya está visible en el mapa y la comunidad.');
     } catch (err: any) {
@@ -924,7 +1019,10 @@ export default function Home() {
           )}
 
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              resetFormState();
+              setIsModalOpen(true);
+            }}
             className="bg-paliacate hover:opacity-90 active:scale-95 transition text-white font-bold px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-lg flex items-center gap-1 text-xs sm:text-sm shrink-0"
           >
             <span className="text-sm sm:text-base leading-none font-extrabold">+</span>
@@ -1249,9 +1347,7 @@ export default function Home() {
                           📍 {dist} km
                         </span>
                       </div>
-                      <p className="text-sm text-theme-muted mt-1.5 line-clamp-3">
-                        {report.description}
-                      </p>
+                      <ExpandableText text={report.description} />
 
                       {/* Banner de Recompensa Activa */}
                       {report.status === 'ACTIVE' && report.reward && report.reward > 0 && (
@@ -1280,7 +1376,7 @@ export default function Home() {
                           <button
                             onClick={(e) => handleMarkResolved(report, e)}
                             title="Marcar como encontrado o resuelto"
-                            className="text-[11px] font-semibold text-theme-muted hover:text-esperanza transition"
+                            className="text-[11px] font-semibold text-theme-muted hover:text-esperanza transition cursor-pointer"
                           >
                             ¿Ya fue encontrado?
                           </button>
@@ -1291,7 +1387,7 @@ export default function Home() {
                         )}
 
                         <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                          {/* Botón de Eliminar Reporte (Visible para el Dueño o un Administrador) */}
+                          {/* Botón de Editar y Eliminar Reporte (Visible para el Dueño o un Administrador) */}
                           {(() => {
                             const isAdmin = (session?.user as any)?.role === 'ADMIN';
                             const isOwner =
@@ -1301,14 +1397,24 @@ export default function Home() {
                             if (!isAdmin && !isOwner) return null;
 
                             return (
-                              <button
-                                type="button"
-                                onClick={(e) => handleDeleteReport(report, e)}
-                                className="text-[11px] font-bold px-2 py-1 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 transition flex items-center gap-1"
-                                title={isAdmin ? 'Eliminar reporte (Permiso Administrador)' : 'Eliminar mi publicación permanentemente'}
-                              >
-                                <span>🗑️</span> Eliminar
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleOpenEdit(report, e)}
+                                  className="text-[11px] font-bold px-2 py-1 rounded-xl bg-paliacate/10 hover:bg-paliacate/20 text-paliacate border border-paliacate/30 transition flex items-center gap-1 cursor-pointer"
+                                  title={isAdmin ? 'Editar publicación (Permiso Administrador)' : 'Editar los datos y fotos de mi publicación'}
+                                >
+                                  <span>✏️</span> Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleDeleteReport(report, e)}
+                                  className="text-[11px] font-bold px-2 py-1 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 transition flex items-center gap-1 cursor-pointer"
+                                  title={isAdmin ? 'Eliminar reporte (Permiso Administrador)' : 'Eliminar mi publicación permanentemente'}
+                                >
+                                  <span>🗑️</span> Eliminar
+                                </button>
+                              </>
                             );
                           })()}
 
@@ -1397,28 +1503,41 @@ export default function Home() {
 
       {/* Botón Flotante para Móviles (+ Reportar) */}
       <button
-        onClick={() => setIsModalOpen(true)}
+        onClick={() => {
+          resetFormState();
+          setIsModalOpen(true);
+        }}
         className="lg:hidden fixed bottom-6 right-6 z-40 bg-paliacate hover:opacity-95 text-white font-bold px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 text-base active:scale-95 transition"
       >
         <span className="text-xl leading-none">+</span> Reportar
       </button>
 
-      {/* MODAL DE NUEVO REPORTE */}
+      {/* MODAL DE NUEVO REPORTE O EDICIÓN */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-theme-surface text-theme-main rounded-3xl w-full max-w-lg p-6 shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto border border-theme transition-colors">
             <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-5 right-5 text-theme-muted hover:text-theme-main font-bold text-2xl w-8 h-8 rounded-full flex items-center justify-center transition"
+              onClick={() => {
+                setIsModalOpen(false);
+                resetFormState();
+              }}
+              className="absolute top-5 right-5 text-theme-muted hover:text-theme-main font-bold text-2xl w-8 h-8 rounded-full flex items-center justify-center transition cursor-pointer"
             >
               ×
             </button>
 
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">📝</span>
-              <h2 className="text-xl md:text-2xl font-bold text-theme-main">
-                Publicar Nuevo Reporte
-              </h2>
+              <span className="text-2xl">{editingReport ? '✏️' : '📝'}</span>
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold text-theme-main">
+                  {editingReport ? 'Modificar Publicación' : 'Publicar Nuevo Reporte'}
+                </h2>
+                {editingReport && (
+                  <p className="text-xs text-theme-muted mt-0.5">
+                    Modifica los datos que necesites o gestiona tus fotografías (puedes agregar las fotos faltantes o cambiarlas hasta 3).
+                  </p>
+                )}
+              </div>
             </div>
 
             <form onSubmit={handleSubmitReport} className="flex flex-col gap-4">
@@ -1862,13 +1981,19 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Botón de Publicación */}
+              {/* Botón de Publicación o Guardar Cambios */}
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-paliacate hover:opacity-95 text-white font-bold py-3.5 rounded-2xl mt-2 transition disabled:opacity-50 shadow-lg text-base active:scale-[0.98]"
+                className="w-full bg-paliacate hover:opacity-95 text-white font-bold py-3.5 rounded-2xl mt-2 transition disabled:opacity-50 shadow-lg text-base active:scale-[0.98] cursor-pointer"
               >
-                {isSubmitting ? 'Publicando reporte...' : 'Publicar Reporte'}
+                {isSubmitting
+                  ? editingReport
+                    ? 'Guardando cambios...'
+                    : 'Publicando reporte...'
+                  : editingReport
+                  ? '💾 Guardar Cambios'
+                  : '🐾 Publicar Reporte'}
               </button>
             </form>
           </div>
@@ -1892,6 +2017,7 @@ export default function Home() {
           handleCardClick(report);
           setIsProfileModalOpen(false);
         }}
+        onEditReport={(report) => handleOpenEdit(report)}
         onReportUpdated={(updatedReport) => {
           setReports((prev) =>
             prev.map((r) => (r.id === updatedReport.id ? updatedReport : r))

@@ -6,6 +6,7 @@ import {
   RegisterUserDto,
   VerifyCredentialsDto,
   ResetPasswordDto,
+  RequestResetCodeDto,
 } from './users.service';
 
 @Controller('users')
@@ -25,6 +26,11 @@ export class UsersController {
   @Post('verify')
   verify(@Body() data: VerifyCredentialsDto) {
     return this.usersService.verifyCredentials(data);
+  }
+
+  @Post('request-reset-code')
+  requestResetCode(@Body() data: RequestResetCodeDto) {
+    return this.usersService.requestResetCode(data);
   }
 
   @Post('reset-password')

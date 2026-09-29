@@ -240,21 +240,24 @@ export const updateReportStatus = async (id: string, status: ReportStatus): Prom
   return response.json();
 };
 
-// Función para actualizar datos completos de un reporte (ej. monto de recompensa)
+// Función para actualizar datos completos de un reporte (ej. fotos, descripción, recompensa)
 export const updateReport = async (
   id: string,
-  data: Partial<CreateReportInput>
+  data: Partial<CreateReportInput>,
+  requesterEmail?: string
 ): Promise<Report> => {
-  const response = await customFetch(`${getBaseUrl()}/reports/${id}`, {
+  const url = `${getBaseUrl()}/reports/${id}${requesterEmail ? `?requesterEmail=${encodeURIComponent(requesterEmail)}` : ''}`;
+  const response = await customFetch(url, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...data, userEmail: requesterEmail || data.userEmail }),
   });
 
   if (!response.ok) {
-    throw new Error('Error al actualizar los datos del reporte');
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Error al actualizar los datos del reporte');
   }
   return response.json();
 };
@@ -329,10 +332,28 @@ export const verifyCredentials = async (data: {
   return response.json();
 };
 
-// Restablecer contraseña mediante correo y teléfono registrado
+// Solicitar código de verificación de 6 dígitos para recuperación de contraseña
+export const requestResetCode = async (data: {
+  email: string;
+  phone: string;
+}): Promise<{ success: boolean; message: string; code?: string }> => {
+  const response = await customFetch(`${getBaseUrl()}/users/request-reset-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'No se pudo generar el código de verificación.');
+  }
+  return response.json();
+};
+
+// Restablecer contraseña mediante correo, teléfono registrado y código de verificación
 export const resetPassword = async (data: {
   email: string;
   phone: string;
+  code: string;
   newPassword: string;
 }): Promise<{ success: boolean; message: string }> => {
   const response = await customFetch(`${getBaseUrl()}/users/reset-password`, {
