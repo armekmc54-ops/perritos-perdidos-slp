@@ -65,8 +65,37 @@ export class ReportsService {
     const title = data.title?.trim() || data.petName?.trim() || 'Reporte de Mascota';
     const reward = data.reward ? Math.max(0, Number(data.reward)) : null;
 
+    // Procesamiento seguro de hasta 3 fotografías
+    let primaryImage: string | null = null;
+    let finalMediaUrl: string | null = null;
+
+    if (data.images && Array.isArray(data.images) && data.images.length > 0) {
+      const validImages = data.images.filter((img) => typeof img === 'string' && img.trim().length > 0).slice(0, 3);
+      if (validImages.length > 0) {
+        primaryImage = validImages[0];
+        finalMediaUrl = validImages.length === 1 ? validImages[0] : JSON.stringify(validImages);
+      }
+    } else if (data.mediaUrl && typeof data.mediaUrl === 'string' && data.mediaUrl.trim().length > 0) {
+      const trimmed = data.mediaUrl.trim();
+      if (trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            primaryImage = parsed[0];
+            finalMediaUrl = parsed.length === 1 ? parsed[0] : JSON.stringify(parsed.slice(0, 3));
+          }
+        } catch {
+          primaryImage = trimmed;
+          finalMediaUrl = trimmed;
+        }
+      } else {
+        primaryImage = trimmed;
+        finalMediaUrl = trimmed;
+      }
+    }
+
     // 1. Análisis con Visión IA Gratuita (Gemini Flash o Heurístico Local)
-    const visionMeta = await this.visionService.analyzePetImage(data.mediaUrl, {
+    const visionMeta = await this.visionService.analyzePetImage(primaryImage, {
       title,
       description: data.description,
       petName: data.petName,
@@ -93,7 +122,7 @@ export class ReportsService {
         aiTags: finalTags,
         latitude: Number(data.latitude),
         longitude: Number(data.longitude),
-        mediaUrl: data.mediaUrl || null,
+        mediaUrl: finalMediaUrl,
         contactPhone: data.contactPhone?.trim() || null,
         reward,
         status: data.status || Status.ACTIVE,

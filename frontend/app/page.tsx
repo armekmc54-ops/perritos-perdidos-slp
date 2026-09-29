@@ -14,6 +14,7 @@ import {
   getTriangulationData,
   sendMessage,
   getMessages,
+  getReportImages,
 } from '../services/api';
 import { useSession } from 'next-auth/react';
 import AuthModal from '../components/AuthModal';
@@ -71,6 +72,176 @@ function formatRelativeTime(dateString: string): string {
   }
 }
 
+// Galería de imágenes completa y sin recortes para tarjetas de reporte
+function ReportCardGallery({
+  mediaUrl,
+  title,
+  status,
+  type,
+  reward,
+  createdAt,
+  onOpenLightbox,
+}: {
+  mediaUrl?: string | null;
+  title: string;
+  status: ReportStatus;
+  type: ReportType;
+  reward?: number | null;
+  createdAt: string;
+  onOpenLightbox: (images: string[], index: number) => void;
+}) {
+  const images = getReportImages(mediaUrl);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const renderBadges = () => (
+    <div className="absolute top-3 left-3 z-20 flex flex-wrap gap-1.5 max-w-[85%] pointer-events-none">
+      {status === 'RESOLVED' ? (
+        <span className="bg-esperanza text-white text-xs font-bold px-3 py-1 rounded-full shadow-md flex items-center gap-1">
+          🎉 ¡ENCONTRADO!
+        </span>
+      ) : type === 'LOST' ? (
+        <span className="bg-paliacate text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+          ¡PERDIDO!
+        </span>
+      ) : type === 'ADOPTION' ? (
+        <span className="bg-confianza text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+          EN ADOPCIÓN
+        </span>
+      ) : (
+        <span className="bg-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+          AVISTAMIENTO
+        </span>
+      )}
+
+      {status === 'ACTIVE' && reward && reward > 0 && (
+        <span className="bg-amber-400 text-gray-900 text-xs font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 border border-amber-300">
+          💰 ${Number(reward).toLocaleString('es-MX')} MXN
+        </span>
+      )}
+    </div>
+  );
+
+  if (!images.length) {
+    return (
+      <div className="h-60 bg-theme-input/50 relative flex flex-col items-center justify-center text-theme-muted select-none">
+        <span className="text-5xl mb-1">🐕</span>
+        <span className="text-xs font-medium">Sin fotografía</span>
+        {renderBadges()}
+        <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-xs font-medium">
+          {formatRelativeTime(createdAt)}
+        </span>
+      </div>
+    );
+  }
+
+  const currentImg = images[currentIndex] || images[0];
+
+  return (
+    <div className="relative group w-full bg-zinc-950 flex flex-col select-none">
+      {/* Contenedor de la foto completa con fondo ambiental difuminado */}
+      <div
+        className="relative h-64 sm:h-72 w-full overflow-hidden flex items-center justify-center cursor-pointer select-none bg-zinc-950"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenLightbox(images, currentIndex);
+        }}
+        title="Toca para ver la foto en pantalla completa"
+      >
+        {/* Fondo ambiental difuminado para llenar suavemente los bordes sin recortar la foto central */}
+        <img
+          src={currentImg}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none select-none"
+        />
+
+        {/* Fotografía completa nítida - NUNCA RECORTADA */}
+        <img
+          src={currentImg}
+          alt={title}
+          className="relative z-10 max-h-full max-w-full object-contain transition duration-200 hover:scale-[1.02]"
+        />
+
+        {renderBadges()}
+
+        {/* Botón lupa / pantalla completa */}
+        <div className="absolute top-3 right-3 z-20 bg-black/60 hover:bg-black text-white p-1.5 rounded-full backdrop-blur-xs text-xs opacity-90 shadow-md">
+          🔍
+        </div>
+
+        {/* Tiempo relativo */}
+        <span className="absolute bottom-2 right-2 z-20 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-xs font-medium">
+          {formatRelativeTime(createdAt)}
+        </span>
+
+        {/* Controles de carrusel si hay más de 1 foto */}
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+              }}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 bg-black/65 hover:bg-black active:scale-90 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold shadow-lg transition backdrop-blur-xs cursor-pointer"
+              title="Foto anterior"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 bg-black/65 hover:bg-black active:scale-90 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold shadow-lg transition backdrop-blur-xs cursor-pointer"
+              title="Siguiente foto"
+            >
+              ›
+            </button>
+
+            {/* Indicador de fotos (ej. 1 de 3) */}
+            <div className="absolute bottom-2 left-2 z-20 bg-black/75 text-white text-[11px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-md">
+              <span>📷</span>
+              <span>{currentIndex + 1} de {images.length}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Tira de miniaturas interactivas cuando hay 2 o 3 fotos */}
+      {images.length > 1 && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border-t border-zinc-800 z-10">
+          {images.map((img, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIndex(idx);
+              }}
+              className={`relative h-12 flex-1 rounded-lg overflow-hidden border-2 transition cursor-pointer bg-black flex items-center justify-center ${
+                idx === currentIndex
+                  ? 'border-paliacate ring-2 ring-paliacate/60 scale-[1.02]'
+                  : 'border-transparent opacity-60 hover:opacity-100'
+              }`}
+            >
+              <img
+                src={img}
+                alt={`Miniatura ${idx + 1}`}
+                className="w-full h-full object-cover"
+              />
+              <span className="absolute bottom-0.5 right-1 text-[9px] font-bold bg-black/75 text-white px-1 rounded">
+                {idx + 1}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   // Estado principal de datos
   const [reports, setReports] = useState<Report[]>([]);
@@ -112,7 +283,9 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPickingOnMap, setIsPickingOnMap] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [isCompressingPhotos, setIsCompressingPhotos] = useState(false);
+  const [lightboxData, setLightboxData] = useState<{ images: string[]; index: number } | null>(null);
 
   const [formData, setFormData] = useState({
     petName: '',
@@ -348,29 +521,62 @@ export default function Home() {
     });
   };
 
-  // Manejo de carga de imagen local optimizada
+  // Manejo de carga de hasta 3 fotografías optimizadas
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 15 * 1024 * 1024) {
-        alert('La imagen no debe superar los 15MB');
-        return;
-      }
-      try {
-        const optimizedBase64 = await compressImage(file);
-        setImagePreview(optimizedBase64);
-        setFormData((prev) => ({ ...prev, mediaUrl: optimizedBase64 }));
-      } catch (err) {
-        console.error('Error al optimizar imagen:', err);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          setImagePreview(base64);
-          setFormData((prev) => ({ ...prev, mediaUrl: base64 }));
-        };
-        reader.readAsDataURL(file);
-      }
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const availableSlots = 3 - imagePreviews.length;
+    if (availableSlots <= 0) {
+      alert('Ya has alcanzado el límite máximo de 3 fotografías.');
+      return;
     }
+
+    const toProcess = files.slice(0, availableSlots);
+    setIsCompressingPhotos(true);
+    try {
+      const newCompressed: string[] = [];
+      for (const file of toProcess) {
+        if (file.size > 15 * 1024 * 1024) {
+          alert(`La foto "${file.name}" supera los 15MB y no se pudo cargar.`);
+          continue;
+        }
+        try {
+          const opt = await compressImage(file);
+          newCompressed.push(opt);
+        } catch {
+          const reader = new FileReader();
+          const res = await new Promise<string>((resolve) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+          newCompressed.push(res);
+        }
+      }
+
+      setImagePreviews((prev) => {
+        const combined = [...prev, ...newCompressed].slice(0, 3);
+        setFormData((f) => ({
+          ...f,
+          mediaUrl: combined.length === 1 ? combined[0] : JSON.stringify(combined),
+        }));
+        return combined;
+      });
+    } finally {
+      setIsCompressingPhotos(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleRemovePhoto = (indexToRemove: number) => {
+    setImagePreviews((prev) => {
+      const updated = prev.filter((_, idx) => idx !== indexToRemove);
+      setFormData((f) => ({
+        ...f,
+        mediaUrl: updated.length === 0 ? '' : updated.length === 1 ? updated[0] : JSON.stringify(updated),
+      }));
+      return updated;
+    });
   };
 
   // Envío del nuevo reporte al Backend
@@ -399,6 +605,12 @@ export default function Home() {
         ? (formData.breed.trim() ? `${formData.customSpecies.trim()} - ${formData.breed.trim()}` : formData.customSpecies.trim())
         : formData.breed.trim() || undefined;
 
+      const mediaValue = imagePreviews.length === 1
+        ? imagePreviews[0]
+        : imagePreviews.length > 1
+          ? JSON.stringify(imagePreviews)
+          : formData.mediaUrl || undefined;
+
       const created = await createReport({
         title: formData.petName.trim() || defaultTitle,
         petName: formData.petName.trim() || undefined,
@@ -411,7 +623,8 @@ export default function Home() {
         contactPhone: formData.contactPhone.trim() || undefined,
         reward: formData.reward && !isNaN(Number(formData.reward)) && Number(formData.reward) > 0 ? Number(formData.reward) : null,
         userEmail: session?.user?.email || undefined,
-        mediaUrl: formData.mediaUrl || undefined,
+        mediaUrl: mediaValue,
+        images: imagePreviews.length > 0 ? imagePreviews : undefined,
         latitude: formData.latitude,
         longitude: formData.longitude,
       });
@@ -423,7 +636,7 @@ export default function Home() {
 
       // Cerramos modal y reseteamos campos
       setIsModalOpen(false);
-      setImagePreview(null);
+      setImagePreviews([]);
       setFormData({
         petName: '',
         type: 'LOST',
@@ -1014,52 +1227,16 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* Imagen o Placeholder */}
-                  <div className="h-48 bg-gray-200 relative flex items-center justify-center overflow-hidden">
-                    {report.mediaUrl ? (
-                      <img
-                        src={report.mediaUrl}
-                        alt={report.title}
-                        className="w-full h-full object-cover transition hover:scale-105 duration-300"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-gray-400">
-                        <span className="text-4xl">🐕</span>
-                        <span className="text-xs font-medium mt-1">Sin fotografía</span>
-                      </div>
-                    )}
-
-                    {/* Insignia de Estado y Recompensa */}
-                    <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 max-w-[85%]">
-                      {report.status === 'RESOLVED' ? (
-                        <span className="bg-esperanza text-white text-xs font-bold px-3 py-1 rounded-full shadow-md flex items-center gap-1">
-                          🎉 ¡ENCONTRADO!
-                        </span>
-                      ) : report.type === 'LOST' ? (
-                        <span className="bg-paliacate text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                          ¡PERDIDO!
-                        </span>
-                      ) : report.type === 'ADOPTION' ? (
-                        <span className="bg-confianza text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                          EN ADOPCIÓN
-                        </span>
-                      ) : (
-                        <span className="bg-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                          AVISTAMIENTO
-                        </span>
-                      )}
-
-                      {report.status === 'ACTIVE' && report.reward && report.reward > 0 && (
-                        <span className="bg-amber-400 text-gray-900 text-xs font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 border border-amber-300">
-                          💰 ${Number(report.reward).toLocaleString('es-MX')} MXN
-                        </span>
-                      )}
-                    </div>
-
-                    <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[11px] px-2 py-0.5 rounded-md backdrop-blur-xs font-medium">
-                      {formatRelativeTime(report.createdAt)}
-                    </span>
-                  </div>
+                  {/* Galería de Fotografías Completa y Sin Recortes */}
+                  <ReportCardGallery
+                    mediaUrl={report.mediaUrl}
+                    title={report.petName || report.title}
+                    status={report.status}
+                    type={report.type}
+                    reward={report.reward}
+                    createdAt={report.createdAt}
+                    onOpenLightbox={(imgs, idx) => setLightboxData({ images: imgs, index: idx })}
+                  />
 
                   {/* Contenido de la Tarjeta */}
                   <div className="p-4 flex-1 flex flex-col justify-between">
@@ -1521,18 +1698,23 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Fotografía del Perrito o Avistamiento con opción de Cámara Directa y Galería */}
+              {/* Fotografías de la Mascota (Hasta 3 fotos completas) */}
               <div>
-                <label className="block text-xs font-bold text-theme-main uppercase tracking-wider mb-2 flex items-center justify-between">
-                  <span>
-                    {formData.type === 'SIGHTING'
-                      ? '📸 Fotografía del Avistamiento (Clave para IA)'
-                      : '📸 Fotografía del Perrito'}
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-theme-main uppercase tracking-wider flex items-center gap-1.5">
+                    <span>📷</span>
+                    <span>Fotografías ({imagePreviews.length}/3)</span>
+                  </label>
+                  <span className="text-[10px] text-theme-muted font-normal">
+                    Hasta 3 fotos completas
                   </span>
-                  <span className="text-[10px] text-theme-muted font-normal">Cámara o archivo</span>
-                </label>
+                </div>
 
-                {/* Inputs ocultos para Cámara directa (capture) y Galería */}
+                <p className="text-[11px] text-theme-muted mb-2.5">
+                  Sube hasta 3 fotos (de frente, cuerpo entero o señas). Se mostrarán completas sin cortar la cabeza o patas.
+                </p>
+
+                {/* Inputs ocultos para Cámara directa y Galería con selección múltiple */}
                 <input
                   ref={cameraInputRef}
                   type="file"
@@ -1545,83 +1727,109 @@ export default function Home() {
                   ref={galleryInputRef}
                   type="file"
                   accept="image/*"
+                  multiple
                   onChange={handleImageFileChange}
                   className="hidden"
                 />
 
-                {!imagePreview ? (
+                {/* Previsualizaciones de fotos subidas (1 a 3 fotos) */}
+                {imagePreviews.length > 0 && (
+                  <div className={`grid gap-2 mb-3 ${imagePreviews.length === 1 ? 'grid-cols-1' : imagePreviews.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                    {imagePreviews.map((img, idx) => (
+                      <div
+                        key={idx}
+                        className={`relative rounded-2xl overflow-hidden border-2 border-paliacate/80 bg-zinc-950 flex items-center justify-center shadow-md group ${
+                          imagePreviews.length === 1 ? 'h-52' : 'h-36'
+                        }`}
+                      >
+                        {/* Ambient blur */}
+                        <img
+                          src={img}
+                          alt=""
+                          aria-hidden="true"
+                          className="absolute inset-0 w-full h-full object-cover blur-md opacity-30 scale-110 pointer-events-none select-none"
+                        />
+                        {/* Foto completa sin recortes */}
+                        <img
+                          src={img}
+                          alt={`Foto ${idx + 1}`}
+                          className="relative z-10 max-h-full max-w-full object-contain"
+                        />
+                        {/* Badge de orden */}
+                        <div className="absolute top-2 left-2 z-20 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-xs shadow">
+                          {idx === 0 ? '⭐ Principal' : `Foto ${idx + 1}`}
+                        </div>
+                        {/* Botón quitar foto */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePhoto(idx)}
+                          className="absolute top-2 right-2 z-20 bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-md transition cursor-pointer"
+                          title="Quitar esta foto"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Botones de acción para agregar fotos (si tiene menos de 3) */}
+                {imagePreviews.length < 3 ? (
                   <div className="grid grid-cols-2 gap-2.5">
-                    {/* Botón de Cámara: Pide permiso al usuario y abre la cámara del celular al instante */}
                     <button
                       type="button"
+                      disabled={isCompressingPhotos}
                       onClick={() => cameraInputRef.current?.click()}
-                      className="py-3.5 px-3 rounded-2xl bg-paliacate/10 hover:bg-paliacate/20 border-2 border-dashed border-paliacate/60 text-paliacate font-bold text-xs sm:text-sm flex flex-col items-center justify-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+                      className="py-3 px-3 rounded-2xl bg-paliacate/10 hover:bg-paliacate/20 border-2 border-dashed border-paliacate/60 text-paliacate font-bold text-xs sm:text-sm flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow-xs cursor-pointer disabled:opacity-50"
                     >
-                      <span className="text-3xl">📷</span>
-                      <span>Tomar Foto</span>
-                      <span className="text-[10px] text-paliacate/80 font-medium">Abrir cámara del celular</span>
+                      <span className="text-2xl">📷</span>
+                      <span>{imagePreviews.length === 0 ? 'Tomar Foto' : '+ Tomar otra foto'}</span>
+                      <span className="text-[10px] text-paliacate/80 font-medium">Cámara directa</span>
                     </button>
 
-                    {/* Botón de Galería: Permite seleccionar una foto guardada */}
                     <button
                       type="button"
+                      disabled={isCompressingPhotos}
                       onClick={() => galleryInputRef.current?.click()}
-                      className="py-3.5 px-3 rounded-2xl bg-theme-input hover:opacity-80 border-2 border-dashed border-theme text-theme-main font-bold text-xs sm:text-sm flex flex-col items-center justify-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+                      className="py-3 px-3 rounded-2xl bg-theme-input hover:opacity-80 border-2 border-dashed border-theme text-theme-main font-bold text-xs sm:text-sm flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow-xs cursor-pointer disabled:opacity-50"
                     >
-                      <span className="text-3xl">🖼️</span>
-                      <span>Subir Galería</span>
-                      <span className="text-[10px] text-theme-muted font-normal">Fotos guardadas</span>
+                      <span className="text-2xl">🖼️</span>
+                      <span>{imagePreviews.length === 0 ? 'Subir Galería' : '+ Agregar foto'}</span>
+                      <span className="text-[10px] text-theme-muted font-normal">
+                        {imagePreviews.length === 0 ? 'Selecciona hasta 3 fotos' : `Quedan ${3 - imagePreviews.length} disponibles`}
+                      </span>
                     </button>
                   </div>
                 ) : (
-                  /* Previsualización cuando ya se tomó o subió la foto */
-                  <div className="relative w-full h-44 rounded-2xl overflow-hidden border-2 border-paliacate shadow-md">
-                    <img
-                      src={imagePreview}
-                      alt="Previsualización"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-2 left-2 bg-esperanza text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1">
-                      <span>✓</span> Foto lista
-                    </div>
-                    <div className="absolute bottom-2 right-2 flex gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => cameraInputRef.current?.click()}
-                        className="bg-black/75 hover:bg-black text-white text-xs px-3 py-1.5 rounded-xl font-bold backdrop-blur-xs flex items-center gap-1 shadow-md transition cursor-pointer"
-                      >
-                        <span>📷</span> Retomar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setImagePreview(null);
-                          setFormData((prev) => ({ ...prev, mediaUrl: '' }));
-                        }}
-                        className="bg-red-600/90 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-xl font-bold shadow-md transition cursor-pointer"
-                      >
-                        ✕ Quitar
-                      </button>
-                    </div>
+                  <div className="p-3 rounded-2xl bg-esperanza/10 border border-esperanza/30 text-esperanza text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-xs">
+                    <span>✓</span>
+                    <span>Has añadido el máximo de 3 fotografías permitidas.</span>
                   </div>
                 )}
 
                 {/* Opción alternativa: pegar enlace de imagen web */}
-                <div className="mt-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-theme-muted shrink-0">O por enlace:</span>
-                    <input
-                      type="url"
-                      value={formData.mediaUrl.startsWith('data:') ? '' : formData.mediaUrl}
-                      onChange={(e) => {
-                        setFormData({ ...formData, mediaUrl: e.target.value });
-                        setImagePreview(e.target.value || null);
-                      }}
-                      placeholder="https://ejemplo.com/foto.jpg"
-                      className="flex-1 bg-theme-input border border-theme rounded-xl px-2.5 py-1.5 text-xs outline-none focus:border-paliacate text-theme-main"
-                    />
+                {imagePreviews.length < 3 && (
+                  <div className="mt-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-theme-muted shrink-0">O por enlace:</span>
+                      <input
+                        type="url"
+                        placeholder="https://ejemplo.com/foto.jpg"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const val = (e.target as HTMLInputElement).value.trim();
+                            if (val && imagePreviews.length < 3) {
+                              setImagePreviews((prev) => [...prev, val].slice(0, 3));
+                              (e.target as HTMLInputElement).value = '';
+                            }
+                          }
+                        }}
+                        className="flex-1 bg-theme-input border border-theme rounded-xl px-2.5 py-1.5 text-xs outline-none focus:border-paliacate text-theme-main"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Selección de Ubicación */}
@@ -1822,6 +2030,76 @@ export default function Home() {
           >
             Ver Buzón
           </button>
+        </div>
+      )}
+
+      {/* MODAL LIGHTBOX: VER FOTOGRAFÍA COMPLETA EN PANTALLA COMPLETA */}
+      {lightboxData && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-3 sm:p-6 select-none"
+          onClick={() => setLightboxData(null)}
+        >
+          {/* Botón cerrar */}
+          <button
+            type="button"
+            onClick={() => setLightboxData(null)}
+            className="absolute top-4 right-4 z-50 bg-white/20 hover:bg-white/40 text-white text-3xl font-bold w-11 h-11 rounded-full flex items-center justify-center transition cursor-pointer shadow-lg"
+            aria-label="Cerrar foto"
+          >
+            ×
+          </button>
+
+          {/* Contador de fotos */}
+          {lightboxData.images.length > 1 && (
+            <div className="absolute top-5 left-5 z-50 bg-black/70 text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-xs shadow-md border border-white/10 flex items-center gap-1.5">
+              <span>📷</span>
+              <span>Foto {lightboxData.index + 1} de {lightboxData.images.length}</span>
+            </div>
+          )}
+
+          {/* Contenedor de la foto sin recortes */}
+          <div
+            className="relative max-w-5xl max-h-[85vh] w-full h-full flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightboxData.images[lightboxData.index]}
+              alt="Foto completa de la mascota"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl transition duration-200"
+            />
+
+            {/* Flechas de navegación en lightbox si hay múltiples fotos */}
+            {lightboxData.images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxData((prev) =>
+                      prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.images.length - 1 } : null
+                    );
+                  }}
+                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black active:scale-95 text-white w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold shadow-xl transition backdrop-blur-xs cursor-pointer border border-white/20"
+                  aria-label="Foto anterior"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxData((prev) =>
+                      prev ? { ...prev, index: prev.index < prev.images.length - 1 ? prev.index + 1 : 0 } : null
+                    );
+                  }}
+                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black active:scale-95 text-white w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold shadow-xl transition backdrop-blur-xs cursor-pointer border border-white/20"
+                  aria-label="Siguiente foto"
+                >
+                  ›
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 

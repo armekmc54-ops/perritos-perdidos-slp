@@ -113,10 +113,32 @@ export interface CreateReportInput {
   latitude: number;
   longitude: number;
   mediaUrl?: string;
+  images?: string[];
   contactPhone?: string;
   reward?: number | null;
   userEmail?: string;
 }
+
+// Extrae de forma segura hasta 3 URLs de imágenes de un reporte (compatible con array JSON o URL individual)
+export const getReportImages = (mediaUrl?: string | null): string[] => {
+  if (!mediaUrl || typeof mediaUrl !== 'string') return [];
+  const trimmed = mediaUrl.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+      }
+    } catch {
+      // fallback
+    }
+  }
+  if (trimmed.includes('|||')) {
+    return trimmed.split('|||').filter((s) => s.trim().length > 0);
+  }
+  return [trimmed];
+};
 
 export interface TriangulationData {
   reportId: string;

@@ -1,9 +1,9 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Report, TriangulationData } from '../services/api';
+import { Report, TriangulationData, getReportImages } from '../services/api';
 
 // Generador de iconos SVG interactivos para Leaflet con efecto de foco y halo pulsante
 const createCustomIcon = (color: string, emoji: string, isSelected: boolean = false) => {
@@ -205,6 +205,60 @@ interface MapProps {
   activeTab?: string;
 }
 
+function MapPopupMedia({ mediaUrl, title }: { mediaUrl?: string | null; title: string }) {
+  const images = getReportImages(mediaUrl);
+  const [index, setIndex] = useState(0);
+
+  if (!images.length) return null;
+
+  const currentImg = images[index] || images[0];
+
+  return (
+    <div className="relative w-full h-44 bg-zinc-950 rounded-xl overflow-hidden mb-2.5 flex items-center justify-center shadow-xs select-none">
+      <img
+        src={currentImg}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110 pointer-events-none select-none"
+      />
+      <img
+        src={currentImg}
+        alt={title}
+        className="relative z-10 max-h-full max-w-full object-contain"
+      />
+      {images.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => {
+              L.DomEvent.stopPropagation(e as any);
+              setIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+            }}
+            className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold shadow-md cursor-pointer"
+            title="Anterior"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              L.DomEvent.stopPropagation(e as any);
+              setIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+            }}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold shadow-md cursor-pointer"
+            title="Siguiente"
+          >
+            ›
+          </button>
+          <div className="absolute bottom-1.5 right-1.5 z-20 bg-black/75 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md backdrop-blur-xs">
+            {index + 1}/{images.length}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Map({
   reports,
   selectedReportId,
@@ -389,13 +443,7 @@ export default function Map({
             >
               <Popup className="custom-popup">
                 <div className="p-1 max-w-[230px]">
-                  {report.mediaUrl && (
-                    <img
-                      src={report.mediaUrl}
-                      alt={report.title}
-                      className="w-full h-28 object-cover rounded-lg mb-2"
-                    />
-                  )}
+                  <MapPopupMedia mediaUrl={report.mediaUrl} title={report.petName || report.title} />
                   <div className="flex items-center gap-1 mb-1">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>
                       {label}

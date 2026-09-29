@@ -13,6 +13,7 @@ export class CreateReportDto {
   latitude: number;
   longitude: number;
   mediaUrl?: string;
+  images?: string[];
   contactPhone?: string;
   reward?: number;
   userEmail?: string;
