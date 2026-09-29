@@ -20,6 +20,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   // Campos para Login
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // Campos para Registro (Crear Cuenta)
   const [regName, setRegName] = useState('');
@@ -27,18 +28,24 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsError, setTermsError] = useState(false);
 
   // Campos para Recuperar Contraseña
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotPhone, setForgotPhone] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
   const [resetSuccessMsg, setResetSuccessMsg] = useState<string | null>(null);
 
   // Campos para Administrador
   const [adminEmail, setAdminEmail] = useState('armekmc54@gmail.com');
   const [adminPassword, setAdminPassword] = useState('TeAmoXimena230408@');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [adminPin, setAdminPin] = useState('');
   const [adminAuthType, setAdminAuthType] = useState<'credentials' | 'pin'>('credentials');
 
@@ -62,12 +69,16 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     try {
       const res = await signIn('credentials', {
         redirect: false,
-        email: loginEmail.trim(),
-        password: loginPassword.trim(),
+        email: loginEmail.trim().toLowerCase(),
+        password: loginPassword,
       });
 
       if (res?.error) {
-        setErrorMsg(res.error);
+        if (res.error === 'CredentialsSignin') {
+          setErrorMsg('Correo o contraseña incorrectos. Verifica tus datos o usa "¿Olvidaste tu contraseña?".');
+        } else {
+          setErrorMsg(res.error);
+        }
       } else {
         onClose();
         if (onSuccess) {
@@ -77,7 +88,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         }
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error al conectar.');
+      setErrorMsg(err.message || 'Error al conectar con el servidor.');
     } finally {
       setIsLoading(false);
     }
@@ -87,13 +98,23 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setTermsError(false);
 
-    if (!regName.trim() || !regEmail.trim() || !regPhone.trim() || !regPassword.trim()) {
+    const emailTrimmed = regEmail.trim().toLowerCase();
+
+    // Si el usuario ingresa el correo de administración
+    if (emailTrimmed === 'armekmc54@gmail.com') {
+      setErrorMsg('👑 Este correo ya pertenece a la cuenta de Administrador. Por favor ingresa en la pestaña "Administrador" de arriba.');
+      return;
+    }
+
+    if (!regName.trim() || !emailTrimmed || !regPhone.trim() || !regPassword.trim() || !regConfirmPassword.trim()) {
       setErrorMsg('Por favor llena todos los campos obligatorios (*).');
       return;
     }
 
-    if (regPhone.replace(/\D/g, '').length < 10) {
+    const cleanPhone = regPhone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
       setErrorMsg('El número de teléfono debe tener al menos 10 dígitos.');
       return;
     }
@@ -104,34 +125,37 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     }
 
     if (regPassword !== regConfirmPassword) {
-      setErrorMsg('Las contraseñas no coinciden. Por favor verifícalas.');
+      setErrorMsg('Las contraseñas no coinciden. Puedes usar el icono del ojo 👁️ para comprobar lo que escribiste.');
       return;
     }
 
     if (!acceptedTerms) {
-      setErrorMsg('⚠️ Debes aceptar los Términos, Condiciones y Deslinde Legal para crear tu cuenta.');
+      setTermsError(true);
+      setErrorMsg('⚠️ Debes marcar la casilla para aceptar los Términos, Condiciones y Deslinde Legal.');
       return;
     }
 
     setIsLoading(true);
     try {
-      // Registrar en el backend (valida correo único y teléfono único)
+      // Registrar en el backend
       await registerUser({
         name: regName.trim(),
-        email: regEmail.trim(),
+        email: emailTrimmed,
         phone: regPhone.trim(),
-        password: regPassword.trim(),
+        password: regPassword,
       });
 
       // Iniciar sesión automáticamente tras el registro exitoso
       const res = await signIn('credentials', {
         redirect: false,
-        email: regEmail.trim(),
-        password: regPassword.trim(),
+        email: emailTrimmed,
+        password: regPassword,
       });
 
       if (res?.error) {
-        setErrorMsg('Cuenta creada, pero ocurrió un problema al iniciar sesión: ' + res.error);
+        setErrorMsg('Cuenta creada correctamente. Por favor inicia sesión: ' + res.error);
+        setUserView('login');
+        setLoginEmail(emailTrimmed);
       } else {
         onClose();
         if (onSuccess) {
@@ -153,7 +177,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     setErrorMsg(null);
     setResetSuccessMsg(null);
 
-    if (!forgotEmail.trim() || !forgotPhone.trim() || !newPassword.trim()) {
+    const emailTrimmed = forgotEmail.trim().toLowerCase();
+
+    if (!emailTrimmed || !forgotPhone.trim() || !newPassword.trim() || !confirmNewPassword.trim()) {
       setErrorMsg('Por favor llena todos los campos.');
       return;
     }
@@ -164,21 +190,21 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     }
 
     if (newPassword !== confirmNewPassword) {
-      setErrorMsg('Las nuevas contraseñas no coinciden.');
+      setErrorMsg('Las contraseñas no coinciden. Verifícalas usando el icono 👁️.');
       return;
     }
 
     setIsLoading(true);
     try {
       const res = await resetPassword({
-        email: forgotEmail.trim(),
+        email: emailTrimmed,
         phone: forgotPhone.trim(),
-        newPassword: newPassword.trim(),
+        newPassword: newPassword,
       });
 
       setResetSuccessMsg(res.message || '¡Contraseña restablecida exitosamente!');
-      setLoginEmail(forgotEmail.trim());
-      setLoginPassword(newPassword.trim());
+      setLoginEmail(emailTrimmed);
+      setLoginPassword(newPassword);
       setTimeout(() => {
         setUserView('login');
         setResetSuccessMsg(null);
@@ -208,12 +234,16 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     try {
       const res = await signIn('credentials', {
         redirect: false,
-        email: adminEmail.trim(),
+        email: adminEmail.trim().toLowerCase(),
         password: adminPassword,
       });
 
       if (res?.error) {
-        setErrorMsg(res.error);
+        if (res.error === 'CredentialsSignin') {
+          setErrorMsg('Credenciales incorrectas de Administrador.');
+        } else {
+          setErrorMsg(res.error);
+        }
       } else {
         onClose();
         if (onSuccess) {
@@ -242,8 +272,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       const res = await signIn('credentials', {
         redirect: false,
         email: 'armekmc54@gmail.com',
-        name: 'Armando (Administrador M&A)',
-        phone: '4443211123',
         adminCode: '230408',
         password: 'TeAmoXimena230408@',
       });
@@ -268,45 +296,47 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div className="bg-theme-surface text-theme-main rounded-3xl w-full max-w-md p-6 shadow-2xl relative border border-theme my-6 max-h-[92vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div className="bg-theme-surface text-theme-main rounded-3xl w-full max-w-md p-5 sm:p-6 shadow-2xl relative border border-theme my-4 max-h-[94vh] overflow-y-auto">
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 text-theme-muted hover:text-theme-main font-bold text-2xl w-8 h-8 rounded-full flex items-center justify-center transition"
+            className="absolute top-4 right-4 text-theme-muted hover:text-theme-main font-bold text-2xl w-8 h-8 rounded-full flex items-center justify-center transition cursor-pointer"
+            aria-label="Cerrar modal"
           >
             ×
           </button>
 
-          <div className="text-center mb-4">
-            <div className="w-14 h-14 bg-paliacate/10 text-paliacate rounded-full flex items-center justify-center mx-auto text-3xl mb-2 shadow-inner">
+          <div className="text-center mb-3">
+            <div className="w-12 h-12 bg-paliacate/10 text-paliacate rounded-full flex items-center justify-center mx-auto text-2xl mb-1.5 shadow-inner">
               🐶
             </div>
-            <h2 className="text-xl md:text-2xl font-bold text-theme-main">Perritos o Animales Perdidos</h2>
-            <p className="text-xs text-theme-muted mt-1">
+            <h2 className="text-lg sm:text-xl font-bold text-theme-main">Perritos o Animales Perdidos</h2>
+            <p className="text-[11px] text-theme-muted mt-0.5">
               Plataforma comunitaria de reporte, búsqueda y protección animal en San Luis Potosí.
             </p>
           </div>
 
           {errorMsg && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-500 text-xs p-3 rounded-xl mb-4 text-center font-medium">
+            <div className="bg-red-500/10 border border-red-500/30 text-red-500 text-xs p-3 rounded-xl mb-3 text-center font-medium animate-pulse">
               {errorMsg}
             </div>
           )}
 
           {resetSuccessMsg && (
-            <div className="bg-esperanza/10 border border-esperanza/30 text-esperanza text-xs p-3 rounded-xl mb-4 text-center font-bold">
+            <div className="bg-esperanza/10 border border-esperanza/30 text-esperanza text-xs p-3 rounded-xl mb-3 text-center font-bold">
               {resetSuccessMsg}
             </div>
           )}
 
           {/* Pestañas Principales: Comunidad vs Administrador */}
-          <div className="flex border-b border-theme mb-4 gap-2">
+          <div className="flex border-b border-theme mb-3 gap-2">
             <button
               onClick={() => {
                 setActiveTab('user');
                 setErrorMsg(null);
+                setTermsError(false);
               }}
-              className={`flex-1 py-2 text-xs font-bold border-b-2 transition flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2 text-xs font-bold border-b-2 transition flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'user'
                   ? 'border-paliacate text-paliacate'
                   : 'border-transparent text-theme-muted hover:text-theme-main'
@@ -318,8 +348,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               onClick={() => {
                 setActiveTab('admin');
                 setErrorMsg(null);
+                setTermsError(false);
               }}
-              className={`flex-1 py-2 text-xs font-bold border-b-2 transition flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2 text-xs font-bold border-b-2 transition flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'admin'
                   ? 'border-paliacate text-paliacate'
                   : 'border-transparent text-theme-muted hover:text-theme-main'
@@ -335,15 +366,16 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               {/* SUB-VISTA A: INICIAR SESIÓN */}
               {userView === 'login' && (
                 <form onSubmit={handleLoginSubmit} className="flex flex-col gap-3">
-                  <div className="flex justify-between items-center mb-1">
+                  <div className="flex justify-between items-center mb-0.5">
                     <h3 className="font-bold text-sm text-theme-main">Iniciar Sesión</h3>
                     <button
                       type="button"
                       onClick={() => {
                         setUserView('register');
                         setErrorMsg(null);
+                        setTermsError(false);
                       }}
-                      className="text-xs text-paliacate font-bold hover:underline"
+                      className="text-xs text-paliacate font-bold hover:underline cursor-pointer"
                     >
                       ¿No tienes cuenta? Regístrate
                     </button>
@@ -354,6 +386,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     <input
                       type="email"
                       required
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
                       placeholder="tu-correo@ejemplo.com"
@@ -370,19 +405,32 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                           setUserView('forgot');
                           setErrorMsg(null);
                         }}
-                        className="text-[10px] text-confianza hover:underline font-semibold"
+                        className="text-[10px] text-confianza hover:underline font-semibold cursor-pointer"
                       >
                         ¿Olvidaste tu contraseña?
                       </button>
                     </div>
-                    <input
-                      type="password"
-                      required
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="Tu contraseña"
-                      className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showLoginPassword ? 'text' : 'password'}
+                        required
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        placeholder="Tu contraseña"
+                        className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-10 text-xs outline-none focus:border-paliacate text-theme-main"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-main text-xs p-1 cursor-pointer"
+                        title={showLoginPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                      >
+                        {showLoginPassword ? '🙈' : '👁️'}
+                      </button>
+                    </div>
                   </div>
 
                   <button
@@ -394,7 +442,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     <span>{isLoading ? 'Comprobando datos...' : 'Ingresar a Mi Cuenta'}</span>
                   </button>
 
-                  <div className="text-center pt-2 border-t border-theme/60 mt-1">
+                  <div className="text-center pt-2 border-t border-theme/60 mt-0.5">
                     <p className="text-xs text-theme-muted">
                       ¿Eres nuevo en la plataforma?{' '}
                       <button
@@ -402,8 +450,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                         onClick={() => {
                           setUserView('register');
                           setErrorMsg(null);
+                          setTermsError(false);
                         }}
-                        className="text-paliacate font-bold hover:underline"
+                        className="text-paliacate font-bold hover:underline cursor-pointer"
                       >
                         Crea tu cuenta aquí
                       </button>
@@ -422,8 +471,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                       onClick={() => {
                         setUserView('login');
                         setErrorMsg(null);
+                        setTermsError(false);
                       }}
-                      className="text-xs text-confianza font-bold hover:underline"
+                      className="text-xs text-confianza font-bold hover:underline cursor-pointer"
                     >
                       ¿Ya tienes cuenta? Entra
                     </button>
@@ -446,11 +496,30 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     <input
                       type="email"
                       required
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
                       placeholder="correo@ejemplo.com"
                       className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
                     />
+                    {/* Alerta inteligente si escribe el correo del administrador */}
+                    {regEmail.toLowerCase().trim() === 'armekmc54@gmail.com' && (
+                      <div className="mt-1.5 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px] text-amber-800 dark:text-amber-300 flex flex-col gap-1">
+                        <div>👑 <strong>¡Hola Administrador!</strong> Este correo ya es la cuenta de Administración.</div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('admin');
+                            setErrorMsg(null);
+                          }}
+                          className="text-left font-bold text-paliacate underline cursor-pointer"
+                        >
+                          👉 Haz clic aquí para entrar directamente en la pestaña Administrador
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -460,59 +529,124 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     <input
                       type="tel"
                       required
+                      maxLength={15}
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
                       placeholder="Ej. 4441234567"
-                      className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
+                      className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main font-mono"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[11px] font-bold text-theme-muted mb-1">Contraseña *</label>
-                      <input
-                        type="password"
-                        required
-                        value={regPassword}
-                        onChange={(e) => setRegPassword(e.target.value)}
-                        placeholder="Mínimo 4 caracteres"
-                        className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showRegPassword ? 'text' : 'password'}
+                          required
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                          placeholder="Mínimo 4 caracteres"
+                          className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-8 text-xs outline-none focus:border-paliacate text-theme-main"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowRegPassword(!showRegPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-main text-xs p-1 cursor-pointer"
+                          title={showRegPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                        >
+                          {showRegPassword ? '🙈' : '👁️'}
+                        </button>
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-theme-muted mb-1">Confirmar Contraseña *</label>
-                      <input
-                        type="password"
-                        required
-                        value={regConfirmPassword}
-                        onChange={(e) => setRegConfirmPassword(e.target.value)}
-                        placeholder="Repite la contraseña"
-                        className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
-                      />
+                      <label className="block text-[11px] font-bold text-theme-muted mb-1">Confirmar *</label>
+                      <div className="relative">
+                        <input
+                          type={showRegConfirmPassword ? 'text' : 'password'}
+                          required
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          value={regConfirmPassword}
+                          onChange={(e) => setRegConfirmPassword(e.target.value)}
+                          placeholder="Repite la contraseña"
+                          className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-8 text-xs outline-none focus:border-paliacate text-theme-main"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowRegConfirmPassword(!showRegConfirmPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-main text-xs p-1 cursor-pointer"
+                          title={showRegConfirmPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                        >
+                          {showRegConfirmPassword ? '🙈' : '👁️'}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* CASILLA OBLIGATORIA DE TÉRMINOS Y CONDICIONES */}
-                  <div className="bg-theme-input/70 p-3 rounded-xl border border-theme flex items-start gap-2.5 mt-1">
-                    <input
-                      type="checkbox"
-                      id="terms-checkbox-reg"
-                      required
-                      checked={acceptedTerms}
-                      onChange={(e) => setAcceptedTerms(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 rounded border-theme text-paliacate focus:ring-paliacate cursor-pointer shrink-0"
-                    />
-                    <label htmlFor="terms-checkbox-reg" className="text-[11px] text-theme-muted leading-tight cursor-pointer">
-                      He leído y acepto los{' '}
+                  {/* Indicador en tiempo real de coincidencia de contraseñas */}
+                  {regConfirmPassword.length > 0 && (
+                    <div className="text-[11px] font-semibold -mt-1">
+                      {regPassword === regConfirmPassword ? (
+                        <span className="text-esperanza flex items-center gap-1">
+                          ✓ Las contraseñas coinciden
+                        </span>
+                      ) : (
+                        <span className="text-red-500 flex items-center gap-1">
+                          ✗ Las contraseñas no coinciden aún
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* CASILLA OBLIGATORIA DE TÉRMINOS Y CONDICIONES (TOTALMENTE TÁCTIL E INTERACTIVA) */}
+                  <div
+                    onClick={() => {
+                      setAcceptedTerms(!acceptedTerms);
+                      setTermsError(false);
+                    }}
+                    className={`p-3 rounded-2xl border-2 transition-all cursor-pointer select-none flex items-start gap-3 mt-1 ${
+                      acceptedTerms
+                        ? 'bg-esperanza/10 border-esperanza/70 shadow-xs'
+                        : termsError
+                          ? 'bg-red-500/10 border-red-500 ring-2 ring-red-500/30'
+                          : 'bg-theme-input/80 border-theme hover:border-theme-muted'
+                    }`}
+                  >
+                    <div
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center text-sm font-black transition-all shrink-0 mt-0.5 ${
+                        acceptedTerms
+                          ? 'bg-esperanza text-white shadow-sm scale-105'
+                          : termsError
+                            ? 'border-2 border-red-500 bg-white dark:bg-zinc-800'
+                            : 'border-2 border-theme-muted/60 bg-theme-surface text-transparent'
+                      }`}
+                    >
+                      {acceptedTerms ? '✓' : ''}
+                    </div>
+                    <div className="flex-1 text-[11px] leading-snug text-theme-main">
+                      <span>He leído y acepto los </span>
                       <button
                         type="button"
-                        onClick={() => setIsTermsModalOpen(true)}
-                        className="text-paliacate font-bold hover:underline inline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsTermsModalOpen(true);
+                        }}
+                        className="text-paliacate font-bold underline hover:opacity-80 transition inline cursor-pointer"
                       >
                         Términos, Condiciones y Deslinde Legal
                       </button>{' '}
                       de la plataforma.
-                    </label>
+                      {termsError && (
+                        <p className="text-red-500 font-bold mt-1 text-[10px]">
+                          ⚠️ Toca aquí para marcar la casilla obligatoria.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <button
@@ -524,7 +658,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     <span>{isLoading ? 'Validando y creando...' : 'Crear Mi Cuenta'}</span>
                   </button>
 
-                  <div className="text-center pt-2 border-t border-theme/60 mt-1">
+                  <div className="text-center pt-2 border-t border-theme/60 mt-0.5">
                     <p className="text-xs text-theme-muted">
                       ¿Ya te habías registrado?{' '}
                       <button
@@ -532,8 +666,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                         onClick={() => {
                           setUserView('login');
                           setErrorMsg(null);
+                          setTermsError(false);
                         }}
-                        className="text-confianza font-bold hover:underline"
+                        className="text-confianza font-bold hover:underline cursor-pointer"
                       >
                         Inicia sesión aquí
                       </button>
@@ -553,7 +688,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                         setUserView('login');
                         setErrorMsg(null);
                       }}
-                      className="text-xs text-theme-muted hover:text-theme-main"
+                      className="text-xs text-theme-muted hover:text-theme-main cursor-pointer"
                     >
                       ← Volver
                     </button>
@@ -568,6 +703,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     <input
                       type="email"
                       required
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       placeholder="tu-correo@ejemplo.com"
@@ -583,32 +721,58 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                       value={forgotPhone}
                       onChange={(e) => setForgotPhone(e.target.value)}
                       placeholder="El teléfono asociado a tu cuenta"
-                      className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
+                      className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main font-mono"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[11px] font-bold text-theme-muted mb-1">Nueva Contraseña *</label>
-                      <input
-                        type="password"
-                        required
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Nueva contraseña"
-                        className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showForgotNewPassword ? 'text' : 'password'}
+                          required
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Nueva contraseña"
+                          className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-8 text-xs outline-none focus:border-paliacate text-theme-main"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-main text-xs p-1 cursor-pointer"
+                          title={showForgotNewPassword ? 'Ocultar' : 'Ver'}
+                        >
+                          {showForgotNewPassword ? '🙈' : '👁️'}
+                        </button>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-theme-muted mb-1">Confirmar Nueva *</label>
-                      <input
-                        type="password"
-                        required
-                        value={confirmNewPassword}
-                        onChange={(e) => setConfirmNewPassword(e.target.value)}
-                        placeholder="Repite la nueva"
-                        className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showForgotConfirmPassword ? 'text' : 'password'}
+                          required
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          value={confirmNewPassword}
+                          onChange={(e) => setConfirmNewPassword(e.target.value)}
+                          placeholder="Repite la nueva"
+                          className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-8 text-xs outline-none focus:border-paliacate text-theme-main"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-main text-xs p-1 cursor-pointer"
+                          title={showForgotConfirmPassword ? 'Ocultar' : 'Ver'}
+                        >
+                          {showForgotConfirmPassword ? '🙈' : '👁️'}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -621,14 +785,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     <span>{isLoading ? 'Verificando datos...' : 'Restablecer Mi Contraseña'}</span>
                   </button>
 
-                  <div className="text-center pt-2 border-t border-theme/60 mt-1">
+                  <div className="text-center pt-2 border-t border-theme/60 mt-0.5">
                     <button
                       type="button"
                       onClick={() => {
                         setUserView('login');
                         setErrorMsg(null);
                       }}
-                      className="text-xs text-theme-muted hover:text-theme-main font-semibold"
+                      className="text-xs text-theme-muted hover:text-theme-main font-semibold cursor-pointer"
                     >
                       ← Regresar al Inicio de Sesión
                     </button>
@@ -656,7 +820,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                 <button
                   type="button"
                   onClick={() => setAdminAuthType('credentials')}
-                  className={`py-2 px-3 rounded-xl border transition ${
+                  className={`py-2 px-3 rounded-xl border transition cursor-pointer ${
                     adminAuthType === 'credentials'
                       ? 'bg-paliacate text-white border-paliacate'
                       : 'bg-theme-input text-theme-muted border-theme'
@@ -667,7 +831,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                 <button
                   type="button"
                   onClick={() => setAdminAuthType('pin')}
-                  className={`py-2 px-3 rounded-xl border transition ${
+                  className={`py-2 px-3 rounded-xl border transition cursor-pointer ${
                     adminAuthType === 'pin'
                       ? 'bg-paliacate text-white border-paliacate'
                       : 'bg-theme-input text-theme-muted border-theme'
@@ -684,6 +848,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     <input
                       type="email"
                       required
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
                       placeholder="armekmc54@gmail.com"
@@ -693,14 +860,27 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
                   <div>
                     <label className="block text-[11px] font-bold text-theme-muted mb-1">Contraseña Maestra</label>
-                    <input
-                      type="password"
-                      required
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                      placeholder="Contraseña de Administrador"
-                      className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main font-mono"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showAdminPassword ? 'text' : 'password'}
+                        required
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        placeholder="Contraseña de Administrador"
+                        className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-8 text-xs outline-none focus:border-paliacate text-theme-main font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAdminPassword(!showAdminPassword)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-theme-muted hover:text-theme-main text-xs p-1 cursor-pointer"
+                        title={showAdminPassword ? 'Ocultar' : 'Ver'}
+                      >
+                        {showAdminPassword ? '🙈' : '👁️'}
+                      </button>
+                    </div>
                   </div>
 
                   <button

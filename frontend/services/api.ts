@@ -1,9 +1,22 @@
 export const getBaseUrl = (): string => {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL;
-  if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+  if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('localhost')) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (process.env.NEXT_PUBLIC_BACKEND_URL && !process.env.NEXT_PUBLIC_BACKEND_URL.includes('localhost')) {
+    return process.env.NEXT_PUBLIC_BACKEND_URL;
+  }
+
+  const isVercel = Boolean(process.env.VERCEL || process.env.NEXT_PUBLIC_VERCEL_ENV);
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isRemoteBrowser =
+    typeof window !== 'undefined' &&
+    !window.location.hostname.includes('localhost') &&
+    !window.location.hostname.includes('127.0.0.1');
+
+  if (isVercel || isProduction || isRemoteBrowser) {
     return 'https://perritos-perdidos-slp.onrender.com/api/v1';
   }
+
   return 'http://localhost:3001/api/v1';
 };
 

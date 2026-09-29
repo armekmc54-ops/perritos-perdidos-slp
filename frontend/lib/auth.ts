@@ -31,23 +31,48 @@ export const authOptions: NextAuthOptions = {
         const isSuperAdmin = normalizedEmail === 'armekmc54@gmail.com';
 
         if (isSuperAdmin) {
-          if (credentials.password && credentials.password !== 'TeAmoXimena230408@') {
-            throw new Error('Contraseña de Administrador incorrecta.');
+          const isValidAdminSecret =
+            credentials.password === 'TeAmoXimena230408@' ||
+            credentials.adminCode === '230408';
+
+          if (!isValidAdminSecret) {
+            throw new Error('Contraseña o código de Administrador incorrecto.');
+          }
+
+          try {
+            const user = await syncUserWithBackend({
+              email: normalizedEmail,
+              name: 'Armando (Administrador M&A)',
+              phone: '4443211123',
+              adminCode: '230408',
+            });
+
+            return {
+              id: user.id || 'admin-armando',
+              email: user.email,
+              name: user.name || 'Armando (Administrador M&A)',
+              image: user.avatarUrl || null,
+              role: user.role || 'ADMIN',
+              phone: user.phone || '4443211123',
+            };
+          } catch (syncErr) {
+            console.warn('Backend sync timeout for admin, providing direct authorized session:', syncErr);
+            return {
+              id: 'admin-armando-direct',
+              email: normalizedEmail,
+              name: 'Armando (Administrador M&A)',
+              image: null,
+              role: 'ADMIN',
+              phone: '4443211123',
+            };
           }
         }
 
         try {
-          const user = isSuperAdmin
-            ? await syncUserWithBackend({
-                email: normalizedEmail,
-                name: 'Armando (Administrador M&A)',
-                phone: '4443211123',
-                adminCode: '230408',
-              })
-            : await verifyCredentials({
-                email: normalizedEmail,
-                password: credentials.password || '',
-              });
+          const user = await verifyCredentials({
+            email: normalizedEmail,
+            password: credentials.password || '',
+          });
 
           return {
             id: user.id,
@@ -59,7 +84,11 @@ export const authOptions: NextAuthOptions = {
           };
         } catch (error: any) {
           console.error('Error en authorize credentials:', error);
-          throw new Error(error.message || 'Error al iniciar sesión');
+          const rawMsg = error.message || '';
+          if (rawMsg.includes('fetch failed') || rawMsg.includes('ECONNREFUSED')) {
+            throw new Error('El servidor de base de datos se está iniciando. Por favor intenta de nuevo en unos segundos.');
+          }
+          throw new Error(rawMsg || 'Error al iniciar sesión');
         }
       },
     }),
