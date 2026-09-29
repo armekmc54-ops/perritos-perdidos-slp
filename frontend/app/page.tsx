@@ -963,7 +963,7 @@ export default function Home() {
     }
     setMessagingReport(report);
     setMessageText(
-      `Hola, te contacto por el reporte de "${report.petName || report.title}" en Perritos o Animales Perdidos.`
+      `Hola, te contacto por el reporte de "${report.petName || report.title}" en Perritos y Animales Perdidos.`
     );
   };
 
@@ -1006,7 +1006,7 @@ export default function Home() {
           </div>
           <div className="min-w-0">
             <h1 className="font-bold text-base sm:text-xl tracking-wide leading-tight truncate">
-              Perritos o Animales Perdidos
+              Perritos y Animales Perdidos
             </h1>
             <p className="text-[11px] text-white/80 hidden sm:block truncate">
               Red comunitaria de rescate y adopción en San Luis Potosí

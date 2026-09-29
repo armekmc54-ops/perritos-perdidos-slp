@@ -114,7 +114,7 @@ export default function Footer() {
             <div>
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-2xl">🐶</span>
-                <h4 className="font-bold text-sm text-theme-main">Perritos o Animales Perdidos</h4>
+                <h4 className="font-bold text-sm text-theme-main">Perritos y Animales Perdidos</h4>
               </div>
               <p className="text-xs text-theme-muted">
                 Red comunitaria de localización, adopción y protección de animales domésticos en San Luis Potosí, S.L.P., México.
@@ -164,7 +164,7 @@ export default function Footer() {
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-theme-muted/80 pt-4 border-t border-theme/40">
             <div>
-              © {new Date().getFullYear()} Perritos o Animales Perdidos — Creado y desarrollado por la empresa <strong>M&amp;A DIGITAL ARTISANS</strong>.
+              © {new Date().getFullYear()} Perritos y Animales Perdidos — Creado y desarrollado por la empresa <strong>M&amp;A DIGITAL ARTISANS</strong>.
             </div>
             <div className="flex items-center gap-4">
               <button

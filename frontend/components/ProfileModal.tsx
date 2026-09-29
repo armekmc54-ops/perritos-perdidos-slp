@@ -1461,7 +1461,7 @@ export default function ProfileModal({
 
         {/* Botón de Cerrar Sesión */}
         <div className="mt-6 pt-4 border-t border-theme flex justify-between items-center">
-          <span className="text-[11px] text-theme-muted">Perritos o Animales Perdidos v1.1</span>
+          <span className="text-[11px] text-theme-muted">Perritos y Animales Perdidos v1.1</span>
           <button
             onClick={() => signOut({ callbackUrl: window.location.href })}
             className="text-red-500 hover:bg-red-500/10 text-xs font-bold px-4 py-2 rounded-xl transition border border-red-500/30"

@@ -23,7 +23,7 @@ export default function TermsModal({ isOpen, onClose }: TermsModalProps) {
                 Términos, Condiciones y Deslinde Legal
               </h2>
               <p className="text-[11px] text-theme-muted">
-                Perritos o Animales Perdidos • Desarrollado por <strong>M&amp;A DIGITAL ARTISANS</strong>
+                Perritos y Animales Perdidos • Desarrollado por <strong>M&amp;A DIGITAL ARTISANS</strong>
               </p>
             </div>
           </div>
@@ -45,7 +45,7 @@ export default function TermsModal({ isOpen, onClose }: TermsModalProps) {
             </h3>
             <div className="space-y-2 text-[11px]">
               <p>
-                <strong>Perritos o Animales Perdidos</strong> es una plataforma tecnológica independiente y comunitaria sin fines de lucro, creada y desarrollada por la empresa <strong>M&amp;A DIGITAL ARTISANS</strong>. Su único propósito es servir como canal público y puente de comunicación entre ciudadanos para el reporte colaborativo de animales domésticos extraviados, avistados o en adopción.
+                <strong>Perritos y Animales Perdidos</strong> es una plataforma tecnológica independiente y comunitaria sin fines de lucro, creada y desarrollada por la empresa <strong>M&amp;A DIGITAL ARTISANS</strong>. Su único propósito es servir como canal público y puente de comunicación entre ciudadanos para el reporte colaborativo de animales domésticos extraviados, avistados o en adopción.
               </p>
               <p>
                 <strong>Exclusión de Garantías:</strong> Ni el desarrollador individual ni <strong>M&amp;A DIGITAL ARTISANS</strong> garantizan ni se hacen responsables de que un animal reportado en la plataforma sea efectivamente localizado, avistado, recuperado o devuelto a sus propietarios. El éxito de cualquier reencuentro depende exclusivamente de la colaboración comunitaria y de las circunstancias particulares de cada caso.

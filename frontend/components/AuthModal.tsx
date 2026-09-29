@@ -358,7 +358,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             <div className="w-12 h-12 bg-paliacate/10 text-paliacate rounded-full flex items-center justify-center mx-auto text-2xl mb-1.5 shadow-inner">
               🐶
             </div>
-            <h2 className="text-lg sm:text-xl font-bold text-theme-main">Perritos o Animales Perdidos</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-theme-main">Perritos y Animales Perdidos</h2>
             <p className="text-[11px] text-theme-muted mt-0.5">
               Plataforma comunitaria de reporte, búsqueda y protección animal en San Luis Potosí.
             </p>
