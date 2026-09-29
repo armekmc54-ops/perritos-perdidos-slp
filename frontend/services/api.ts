@@ -140,6 +140,12 @@ export const getReportImages = (mediaUrl?: string | null): string[] => {
   return [trimmed];
 };
 
+// Obtiene de forma segura la imagen principal (primera fotografía) de un reporte
+export const getPrimaryImage = (mediaUrl?: string | null): string | null => {
+  const images = getReportImages(mediaUrl);
+  return images.length > 0 ? images[0] : null;
+};
+
 export interface TriangulationData {
   reportId: string;
   species: Species;

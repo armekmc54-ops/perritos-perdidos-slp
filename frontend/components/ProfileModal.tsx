@@ -18,6 +18,7 @@ import {
   TriangulationData,
   Species,
   deleteReport,
+  getPrimaryImage,
 } from '../services/api';
 
 interface ProfileModalProps {
@@ -828,9 +829,9 @@ export default function ProfileModal({
                           </p>
 
                           <div className="flex items-center gap-3">
-                            {dog.mediaUrl ? (
+                            {getPrimaryImage(dog.mediaUrl) ? (
                               <img
-                                src={dog.mediaUrl}
+                                src={getPrimaryImage(dog.mediaUrl)!}
                                 alt={dog.title}
                                 className="w-16 h-16 rounded-xl object-cover border border-theme shadow-xs shrink-0"
                               />
@@ -929,9 +930,9 @@ export default function ProfileModal({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          {r.mediaUrl ? (
+                          {getPrimaryImage(r.mediaUrl) ? (
                             <img
-                              src={r.mediaUrl}
+                              src={getPrimaryImage(r.mediaUrl)!}
                               alt={r.title}
                               className="w-14 h-14 rounded-xl object-cover border border-theme shadow-xs shrink-0"
                             />
@@ -1044,6 +1045,9 @@ export default function ProfileModal({
                               <button
                                 type="button"
                                 onClick={async () => {
+                                  if (dogSightings.length === 0) {
+                                    alert('⏱️ Aún no se han registrado avistamientos comunitarios recientes para este perrito o ha transcurrido el tiempo límite de triangulación.\n\nTe mostramos la última ubicación conocida en el mapa para iniciar la búsqueda.');
+                                  }
                                   try {
                                     const triData = await getTriangulationData(r.id);
                                     onTriangulateReport(r, dogSightings, triData);

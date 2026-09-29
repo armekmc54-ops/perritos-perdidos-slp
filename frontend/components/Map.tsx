@@ -92,12 +92,12 @@ const tempPinIcon = createCustomIcon('#EF4444', '📍', true); // Rojo Selecció
 function MapExpandableText({ text }: { text: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
   if (!text) return null;
-  const isLong = text.length > 90;
+  const isLong = text.length > 60;
 
   return (
-    <div className="text-xs text-gray-600 mt-1 leading-snug">
+    <div className="text-[11px] text-gray-600 mt-0.5 leading-snug">
       <p className="whitespace-pre-line">
-        {isLong && !isExpanded ? `${text.slice(0, 90).trim()}...` : text}
+        {isLong && !isExpanded ? `${text.slice(0, 60).trim()}...` : text}
       </p>
       {isLong && (
         <button
@@ -106,7 +106,7 @@ function MapExpandableText({ text }: { text: string }) {
             e.stopPropagation();
             setIsExpanded(!isExpanded);
           }}
-          className="text-[11px] font-bold text-paliacate hover:underline mt-0.5 inline-block cursor-pointer"
+          className="text-[10px] font-bold text-paliacate hover:underline mt-0.5 inline-block cursor-pointer"
         >
           {isExpanded ? 'Ver menos ▲' : 'Ver más... ▼'}
         </button>
@@ -240,7 +240,7 @@ function MapPopupMedia({ mediaUrl, title }: { mediaUrl?: string | null; title: s
   const currentImg = images[index] || images[0];
 
   return (
-    <div className="relative w-full h-44 bg-zinc-950 rounded-xl overflow-hidden mb-2.5 flex items-center justify-center shadow-xs select-none">
+    <div className="relative w-full h-28 bg-zinc-950 rounded-xl overflow-hidden mb-2 flex items-center justify-center shadow-xs select-none">
       <img
         src={currentImg}
         alt=""
@@ -260,7 +260,7 @@ function MapPopupMedia({ mediaUrl, title }: { mediaUrl?: string | null; title: s
               L.DomEvent.stopPropagation(e as any);
               setIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
             }}
-            className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold shadow-md cursor-pointer"
+            className="absolute left-1 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shadow-md cursor-pointer"
             title="Anterior"
           >
             ‹
@@ -271,12 +271,12 @@ function MapPopupMedia({ mediaUrl, title }: { mediaUrl?: string | null; title: s
               L.DomEvent.stopPropagation(e as any);
               setIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
             }}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold shadow-md cursor-pointer"
+            className="absolute right-1 top-1/2 -translate-y-1/2 z-20 bg-black/70 hover:bg-black text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shadow-md cursor-pointer"
             title="Siguiente"
           >
             ›
           </button>
-          <div className="absolute bottom-1.5 right-1.5 z-20 bg-black/75 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md backdrop-blur-xs">
+          <div className="absolute bottom-1 right-1 z-20 bg-black/75 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-md backdrop-blur-xs">
             {index + 1}/{images.length}
           </div>
         </>
@@ -467,30 +467,38 @@ export default function Map({
                 },
               }}
             >
-              <Popup className="custom-popup">
-                <div className="p-1 max-w-[230px]">
+              <Popup
+                className="custom-popup"
+                autoPan={true}
+                autoPanPaddingTopLeft={L.point(20, 80)}
+                autoPanPaddingBottomRight={L.point(20, 20)}
+                keepInView={true}
+                maxWidth={240}
+                minWidth={200}
+              >
+                <div className="p-0.5 max-w-[220px]">
                   <MapPopupMedia mediaUrl={report.mediaUrl} title={report.petName || report.title} />
                   <div className="flex items-center gap-1 mb-1">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${badgeColor}`}>
                       {label}
                     </span>
                     {isSelected && (
-                      <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-400 text-carbon">
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-400 text-carbon">
                         🎯 Enfocado
                       </span>
                     )}
                   </div>
                   {report.reward && report.reward > 0 && (
-                    <div className="mb-1 text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                    <div className="mb-1 text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
                       <span>💰</span> Recompensa: ${report.reward.toLocaleString('es-MX')} MXN
                     </div>
                   )}
-                  <h4 className="font-bold text-sm text-carbon leading-snug">
+                  <h4 className="font-bold text-xs text-carbon leading-snug">
                     {report.petName || report.title}
                   </h4>
                   <MapExpandableText text={report.description} />
 
-                  <div className="mt-2.5 pt-2 border-t border-gray-200 flex flex-col gap-1.5">
+                  <div className="mt-2 pt-1.5 border-t border-gray-200 flex flex-col gap-1">
                     {onOpenMessageModal && (
                       <button
                         type="button"
@@ -498,7 +506,7 @@ export default function Map({
                           e.stopPropagation();
                           onOpenMessageModal(report);
                         }}
-                        className="w-full bg-confianza hover:opacity-90 text-white text-xs font-bold py-1.5 px-3 rounded-lg shadow-xs transition flex items-center justify-center gap-1"
+                        className="w-full bg-confianza hover:opacity-90 text-white text-[11px] font-bold py-1 px-2.5 rounded-lg shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <span>💬</span> Enviar Mensaje
                       </button>
@@ -511,7 +519,7 @@ export default function Map({
                         )}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-1 w-full bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg shadow-xs transition"
+                        className="inline-flex items-center justify-center gap-1 w-full bg-green-500 hover:bg-green-600 text-white text-[11px] font-bold py-1 px-2.5 rounded-lg shadow-xs transition cursor-pointer"
                       >
                         <span>📱</span> WhatsApp
                       </a>

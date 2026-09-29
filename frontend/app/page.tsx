@@ -16,6 +16,7 @@ import {
   sendMessage,
   getMessages,
   getReportImages,
+  getPrimaryImage,
 } from '../services/api';
 import { useSession } from 'next-auth/react';
 import AuthModal from '../components/AuthModal';
@@ -74,13 +75,13 @@ function formatRelativeTime(dateString: string): string {
 }
 
 // Componente de descripción expandible con botón "Ver más..." / "Ver menos"
-function ExpandableText({ text, limit = 130 }: { text: string; limit?: number }) {
+function ExpandableText({ text, limit = 75 }: { text: string; limit?: number }) {
   const [isExpanded, setIsExpanded] = useState(false);
   if (!text) return null;
   const isLong = text.length > limit;
 
   return (
-    <div className="mt-1.5 text-sm text-theme-muted leading-relaxed">
+    <div className="mt-1 text-xs text-theme-muted leading-relaxed">
       <p className="whitespace-pre-line">
         {isLong && !isExpanded ? `${text.slice(0, limit).trim()}...` : text}
       </p>
@@ -91,7 +92,7 @@ function ExpandableText({ text, limit = 130 }: { text: string; limit?: number })
             e.stopPropagation();
             setIsExpanded(!isExpanded);
           }}
-          className="text-xs font-bold text-paliacate hover:underline mt-1 inline-flex items-center gap-1 cursor-pointer"
+          className="text-[11px] font-bold text-paliacate hover:underline mt-0.5 inline-flex items-center gap-1 cursor-pointer"
         >
           {isExpanded ? 'Ver menos ▲' : 'Ver más... ▼'}
         </button>
@@ -122,27 +123,27 @@ function ReportCardGallery({
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const renderBadges = () => (
-    <div className="absolute top-3 left-3 z-20 flex flex-wrap gap-1.5 max-w-[85%] pointer-events-none">
+    <div className="absolute top-2 left-2 z-20 flex flex-wrap gap-1 max-w-[85%] pointer-events-none">
       {status === 'RESOLVED' ? (
-        <span className="bg-esperanza text-white text-xs font-bold px-3 py-1 rounded-full shadow-md flex items-center gap-1">
+        <span className="bg-esperanza text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
           🎉 ¡ENCONTRADO!
         </span>
       ) : type === 'LOST' ? (
-        <span className="bg-paliacate text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+        <span className="bg-paliacate text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">
           ¡PERDIDO!
         </span>
       ) : type === 'ADOPTION' ? (
-        <span className="bg-confianza text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+        <span className="bg-confianza text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">
           EN ADOPCIÓN
         </span>
       ) : (
-        <span className="bg-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+        <span className="bg-amber-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md">
           AVISTAMIENTO
         </span>
       )}
 
       {status === 'ACTIVE' && reward && reward > 0 && (
-        <span className="bg-amber-400 text-gray-900 text-xs font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 border border-amber-300">
+        <span className="bg-amber-400 text-gray-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-amber-300">
           💰 ${Number(reward).toLocaleString('es-MX')} MXN
         </span>
       )}
@@ -151,11 +152,11 @@ function ReportCardGallery({
 
   if (!images.length) {
     return (
-      <div className="h-60 bg-theme-input/50 relative flex flex-col items-center justify-center text-theme-muted select-none">
-        <span className="text-5xl mb-1">🐕</span>
-        <span className="text-xs font-medium">Sin fotografía</span>
+      <div className="h-32 bg-theme-input/50 relative flex flex-col items-center justify-center text-theme-muted select-none">
+        <span className="text-3xl mb-0.5">🐕</span>
+        <span className="text-[11px] font-medium">Sin fotografía</span>
         {renderBadges()}
-        <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-xs font-medium">
+        <span className="absolute bottom-1.5 right-1.5 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded-md backdrop-blur-xs font-medium">
           {formatRelativeTime(createdAt)}
         </span>
       </div>
@@ -168,7 +169,7 @@ function ReportCardGallery({
     <div className="relative group w-full bg-zinc-950 flex flex-col select-none">
       {/* Contenedor de la foto completa con fondo ambiental difuminado */}
       <div
-        className="relative h-64 sm:h-72 w-full overflow-hidden flex items-center justify-center cursor-pointer select-none bg-zinc-950"
+        className="relative h-36 sm:h-40 w-full overflow-hidden flex items-center justify-center cursor-pointer select-none bg-zinc-950"
         onClick={(e) => {
           e.stopPropagation();
           onOpenLightbox(images, currentIndex);
@@ -193,12 +194,12 @@ function ReportCardGallery({
         {renderBadges()}
 
         {/* Botón lupa / pantalla completa */}
-        <div className="absolute top-3 right-3 z-20 bg-black/60 hover:bg-black text-white p-1.5 rounded-full backdrop-blur-xs text-xs opacity-90 shadow-md">
+        <div className="absolute top-2 right-2 z-20 bg-black/60 hover:bg-black text-white p-1 rounded-full backdrop-blur-xs text-[10px] opacity-90 shadow-md">
           🔍
         </div>
 
         {/* Tiempo relativo */}
-        <span className="absolute bottom-2 right-2 z-20 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-xs font-medium">
+        <span className="absolute bottom-1.5 right-1.5 z-20 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded-md backdrop-blur-xs font-medium">
           {formatRelativeTime(createdAt)}
         </span>
 
@@ -211,7 +212,7 @@ function ReportCardGallery({
                 e.stopPropagation();
                 setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
               }}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 bg-black/65 hover:bg-black active:scale-90 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold shadow-lg transition backdrop-blur-xs cursor-pointer"
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 bg-black/65 hover:bg-black active:scale-90 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold shadow-lg transition backdrop-blur-xs cursor-pointer"
               title="Foto anterior"
             >
               ‹
@@ -222,14 +223,14 @@ function ReportCardGallery({
                 e.stopPropagation();
                 setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
               }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 bg-black/65 hover:bg-black active:scale-90 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold shadow-lg transition backdrop-blur-xs cursor-pointer"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 bg-black/65 hover:bg-black active:scale-90 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold shadow-lg transition backdrop-blur-xs cursor-pointer"
               title="Siguiente foto"
             >
               ›
             </button>
 
             {/* Indicador de fotos (ej. 1 de 3) */}
-            <div className="absolute bottom-2 left-2 z-20 bg-black/75 text-white text-[11px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-md">
+            <div className="absolute bottom-1.5 left-1.5 z-20 bg-black/75 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-md">
               <span>📷</span>
               <span>{currentIndex + 1} de {images.length}</span>
             </div>
@@ -239,7 +240,7 @@ function ReportCardGallery({
 
       {/* Tira de miniaturas interactivas cuando hay 2 o 3 fotos */}
       {images.length > 1 && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border-t border-zinc-800 z-10">
+        <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-900 border-t border-zinc-800 z-10">
           {images.map((img, idx) => (
             <button
               key={idx}
@@ -248,9 +249,9 @@ function ReportCardGallery({
                 e.stopPropagation();
                 setCurrentIndex(idx);
               }}
-              className={`relative h-12 flex-1 rounded-lg overflow-hidden border-2 transition cursor-pointer bg-black flex items-center justify-center ${
+              className={`relative h-7 flex-1 rounded-md overflow-hidden border transition cursor-pointer bg-black flex items-center justify-center ${
                 idx === currentIndex
-                  ? 'border-paliacate ring-2 ring-paliacate/60 scale-[1.02]'
+                  ? 'border-paliacate ring-1 ring-paliacate/60 scale-[1.02]'
                   : 'border-transparent opacity-60 hover:opacity-100'
               }`}
             >
@@ -259,7 +260,7 @@ function ReportCardGallery({
                 alt={`Miniatura ${idx + 1}`}
                 className="w-full h-full object-cover"
               />
-              <span className="absolute bottom-0.5 right-1 text-[9px] font-bold bg-black/75 text-white px-1 rounded">
+              <span className="absolute bottom-0.2 right-0.5 text-[8px] font-bold bg-black/75 text-white px-0.5 rounded">
                 {idx + 1}
               </span>
             </button>
@@ -742,7 +743,8 @@ export default function Home() {
       // Añadimos reactivamente el reporte a la lista y seleccionamos
       setReports((prev) => [created, ...prev]);
       setSelectedReportId(created.id);
-      setMapCenter([created.latitude, created.longitude]);
+      setMapCenter([created.latitude + 0.0030, created.longitude]);
+      setMapZoom(16);
 
       // Cerramos modal y reseteamos campos
       setIsModalOpen(false);
@@ -830,9 +832,9 @@ export default function Home() {
       setMapCenter(SLP_CENTER);
       setMapZoom(13);
     } else {
-      // Enfocar y hacer zoom a nivel de calle (16)
+      // Enfocar y hacer zoom a nivel de calle (16) con compensación norte (+0.0030) para centrado óptico del popup
       setSelectedReportId(report.id);
-      setMapCenter([report.latitude, report.longitude]);
+      setMapCenter([report.latitude + 0.0030, report.longitude]);
       setMapZoom(16);
       if (typeof window !== 'undefined' && window.innerWidth < 1024) {
         setMobileTab('map');
@@ -848,9 +850,9 @@ export default function Home() {
       setMapCenter(SLP_CENTER);
       setMapZoom(13);
     } else {
-      // Enfocar pin y hacer zoom a nivel de calle
+      // Enfocar pin y hacer zoom a nivel de calle con compensación norte para centrado óptico
       setSelectedReportId(report.id);
-      setMapCenter([report.latitude, report.longitude]);
+      setMapCenter([report.latitude + 0.0030, report.longitude]);
       setMapZoom(16);
 
       // Desplazar el feed suavemente hacia la tarjeta correspondiente
@@ -1337,25 +1339,25 @@ export default function Home() {
                   />
 
                   {/* Contenido de la Tarjeta */}
-                  <div className="p-4 flex-1 flex flex-col justify-between">
+                  <div className="p-3 flex-1 flex flex-col justify-between">
                     <div>
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-bold text-lg text-theme-main leading-snug">
+                        <h3 className="font-bold text-sm sm:text-base text-theme-main leading-snug">
                           {report.petName || report.title}
                         </h3>
-                        <span className="text-xs font-semibold text-theme-muted whitespace-nowrap">
+                        <span className="text-[11px] font-semibold text-theme-muted whitespace-nowrap">
                           📍 {dist} km
                         </span>
                       </div>
-                      <ExpandableText text={report.description} />
+                      <ExpandableText text={report.description} limit={75} />
 
                       {/* Banner de Recompensa Activa */}
                       {report.status === 'ACTIVE' && report.reward && report.reward > 0 && (
-                        <div className="mt-2.5 p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between">
-                          <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                            <span>💰</span> Recompensa ofrecida:
+                        <div className="mt-1.5 p-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <span>💰</span> Recompensa:
                           </span>
-                          <span className="text-xs font-extrabold text-amber-600 dark:text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-lg">
+                          <span className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 bg-amber-500/20 px-1.5 py-0.2 rounded-md">
                             ${Number(report.reward).toLocaleString('es-MX')} MXN
                           </span>
                         </div>
@@ -1363,30 +1365,30 @@ export default function Home() {
 
                       {/* Banner de Caso de Éxito */}
                       {report.status === 'RESOLVED' && (
-                        <div className="mt-2.5 p-2 bg-esperanza/10 border border-esperanza/30 rounded-xl flex items-center gap-1.5 text-xs font-bold text-esperanza">
+                        <div className="mt-1.5 p-1.5 bg-esperanza/10 border border-esperanza/30 rounded-lg flex items-center gap-1.5 text-[11px] font-bold text-esperanza">
                           <span>🎉</span> ¡Perrito reunido felizmente con su familia!
                         </div>
                       )}
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-theme flex flex-col gap-2">
+                    <div className="mt-2 pt-2 border-t border-theme flex flex-col gap-1.5">
                       <div className="flex items-center justify-between gap-2">
                         {/* Botón de Resolver si está activo */}
                         {report.status === 'ACTIVE' ? (
                           <button
                             onClick={(e) => handleMarkResolved(report, e)}
                             title="Marcar como encontrado o resuelto"
-                            className="text-[11px] font-semibold text-theme-muted hover:text-esperanza transition cursor-pointer"
+                            className="text-[10px] font-semibold text-theme-muted hover:text-esperanza transition cursor-pointer"
                           >
                             ¿Ya fue encontrado?
                           </button>
                         ) : (
-                          <span className="text-[11px] font-bold text-esperanza">
+                          <span className="text-[10px] font-bold text-esperanza">
                             Caso de éxito comunitario
                           </span>
                         )}
 
-                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <div className="flex items-center gap-1 flex-wrap justify-end">
                           {/* Botón de Editar y Eliminar Reporte (Visible para el Dueño o un Administrador) */}
                           {(() => {
                             const isAdmin = (session?.user as any)?.role === 'ADMIN';
@@ -1401,7 +1403,7 @@ export default function Home() {
                                 <button
                                   type="button"
                                   onClick={(e) => handleOpenEdit(report, e)}
-                                  className="text-[11px] font-bold px-2 py-1 rounded-xl bg-paliacate/10 hover:bg-paliacate/20 text-paliacate border border-paliacate/30 transition flex items-center gap-1 cursor-pointer"
+                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg bg-paliacate/10 hover:bg-paliacate/20 text-paliacate border border-paliacate/30 transition flex items-center gap-1 cursor-pointer"
                                   title={isAdmin ? 'Editar publicación (Permiso Administrador)' : 'Editar los datos y fotos de mi publicación'}
                                 >
                                   <span>✏️</span> Editar
@@ -1409,7 +1411,7 @@ export default function Home() {
                                 <button
                                   type="button"
                                   onClick={(e) => handleDeleteReport(report, e)}
-                                  className="text-[11px] font-bold px-2 py-1 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 transition flex items-center gap-1 cursor-pointer"
+                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 transition flex items-center gap-1 cursor-pointer"
                                   title={isAdmin ? 'Eliminar reporte (Permiso Administrador)' : 'Eliminar mi publicación permanentemente'}
                                 >
                                   <span>🗑️</span> Eliminar
@@ -1429,6 +1431,11 @@ export default function Home() {
                                   const relevantSightings = reports.filter(
                                     (s) => s.type === 'SIGHTING' && (s.species === report.species || !report.species)
                                   );
+
+                                  if (!relevantSightings || relevantSightings.length === 0) {
+                                    alert('⏱️ Aún no se han registrado avistamientos comunitarios recientes para este perrito o ha transcurrido el tiempo límite de triangulación.\n\nTe mostramos la última ubicación conocida y el radio de dispersión estimado en el mapa.');
+                                  }
+
                                   setTriangulationData({
                                     lostReport: report,
                                     sightings: relevantSightings,
@@ -1436,11 +1443,20 @@ export default function Home() {
                                   });
                                   setMapCenter([report.latitude, report.longitude]);
                                   setMapZoom(14);
+                                  if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                                    setMobileTab('map');
+                                  }
                                 } catch (err) {
                                   console.error('Error calculando triangulación:', err);
+                                  alert('⏱️ Ya ha transcurrido el tiempo límite para estimar la ruta o aún no hay avistamientos registrados para este reporte.\n\nMostrando ubicación original.');
+                                  setMapCenter([report.latitude, report.longitude]);
+                                  setMapZoom(14);
+                                  if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                                    setMobileTab('map');
+                                  }
                                 }
                               }}
-                              className="text-[11px] font-bold px-2 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition flex items-center gap-1"
+                              className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition flex items-center gap-1 cursor-pointer"
                               title="Calcular área de búsqueda espacial según especie y tiempo"
                             >
                               <span>📐</span> Triangular
@@ -1454,23 +1470,23 @@ export default function Home() {
                               e.stopPropagation();
                               handleCardClick(report);
                             }}
-                            className={`text-[11px] font-bold px-2.5 py-1 rounded-xl transition flex items-center gap-1 ${
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-lg transition flex items-center gap-1 ${
                               isSelected
                                 ? 'bg-paliacate text-white'
                                 : 'bg-theme-input text-theme-muted hover:text-theme-main border border-theme'
                             }`}
                           >
-                            {isSelected ? '✕ Alejar mapa' : '🔍 Enfocar calles'}
+                            {isSelected ? '✕ Alejar' : '🔍 Enfocar'}
                           </button>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-1">
+                      <div className="flex items-center gap-1.5 pt-0.5">
                         {/* Botón de Mensajería en Plataforma */}
                         <button
                           type="button"
                           onClick={(e) => handleOpenSendMessage(report, e)}
-                          className="flex-1 bg-confianza hover:opacity-90 active:scale-95 text-white text-xs font-bold py-1.5 px-3 rounded-xl transition flex items-center justify-center gap-1 shadow-xs"
+                          className="flex-1 bg-confianza hover:opacity-90 active:scale-95 text-white text-xs font-bold py-1 px-2.5 rounded-lg transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
                           title="Enviar mensaje en la plataforma"
                         >
                           <span>💬</span> Enviar Mensaje
@@ -1480,13 +1496,13 @@ export default function Home() {
                         {report.contactPhone && (
                           <a
                             href={`https://wa.me/${report.contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                              `Hola, te contacto por el reporte de "${report.petName || report.title}" en Perritos o Animales Perdidos`
+                              `Hola, te contacto por el reporte de ${report.petName || report.title} en Perritos Perdidos SLP`
                             )}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-green-500 hover:bg-green-600 active:scale-95 text-white text-xs font-bold py-1.5 px-3 rounded-xl transition flex items-center gap-1 shadow-xs shrink-0"
-                            title="Contactar vía WhatsApp"
+                            className="flex-1 bg-green-500 hover:bg-green-600 active:scale-95 text-white text-xs font-bold py-1 px-2.5 rounded-lg transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                            title="Contactar al dueño directamente por WhatsApp"
                           >
                             <span>📱</span> WhatsApp
                           </a>
@@ -1981,20 +1997,32 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Botón de Publicación o Guardar Cambios */}
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-paliacate hover:opacity-95 text-white font-bold py-3.5 rounded-2xl mt-2 transition disabled:opacity-50 shadow-lg text-base active:scale-[0.98] cursor-pointer"
-              >
-                {isSubmitting
-                  ? editingReport
-                    ? 'Guardando cambios...'
-                    : 'Publicando reporte...'
-                  : editingReport
-                  ? '💾 Guardar Cambios'
-                  : '🐾 Publicar Reporte'}
-              </button>
+              {/* Botón de Publicación o Guardar Cambios con Opción de Cancelar */}
+              <div className="flex items-center gap-3 mt-4 pt-2 border-t border-theme">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    resetFormState();
+                  }}
+                  className="flex-1 bg-theme-input hover:bg-gray-200 dark:hover:bg-zinc-800 text-theme-muted hover:text-theme-main font-bold py-3 rounded-2xl transition border border-theme text-sm sm:text-base cursor-pointer text-center"
+                >
+                  ✕ Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-[2] bg-paliacate hover:opacity-95 text-white font-bold py-3 rounded-2xl transition disabled:opacity-50 shadow-lg text-sm sm:text-base active:scale-[0.98] cursor-pointer"
+                >
+                  {isSubmitting
+                    ? editingReport
+                      ? 'Guardando cambios...'
+                      : 'Publicando reporte...'
+                    : editingReport
+                    ? '💾 Guardar Cambios'
+                    : '🐾 Publicar Reporte'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -2056,9 +2084,9 @@ export default function Home() {
             </button>
 
             <div className="flex items-center gap-3 mb-4 pb-3 border-b border-theme">
-              {messagingReport.mediaUrl ? (
+              {getPrimaryImage(messagingReport.mediaUrl) ? (
                 <img
-                  src={messagingReport.mediaUrl}
+                  src={getPrimaryImage(messagingReport.mediaUrl)!}
                   alt={messagingReport.title}
                   className="w-14 h-14 rounded-2xl object-cover border border-theme shadow-xs shrink-0"
                 />
