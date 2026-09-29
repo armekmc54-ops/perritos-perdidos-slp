@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id               String             @id @default(uuid())
+  email            String             @unique
+  name             String?
+  avatarUrl        String?
+  phone            String?
+  passwordHash     String?
+  role             Role               @default(USER)
+  points           Int                @default(0)
+  level            String             @default("Rescatista Novato")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  reports          Report[]
+  sentMessages     Message[]          @relation("SentMessages")
+  receivedMessages Message[]          @relation("ReceivedMessages")
+  foundReports     Report[]           @relation("FoundReports")
+  pointTransactions PointTransaction[]
+}
+
+model Report {
+  id                   String             @id @default(uuid())
+  title                String
+  description          String
+  status               Status             @default(ACTIVE)
+  type                 ReportType
+  species              Species            @default(DOG)
+  breed                String?
+  primaryColor         String?
+  size                 String?            // PEQUEÑO, MEDIANO, GRANDE
+  aiTags               String[]           @default([])
+  latitude             Float
+  longitude            Float
+  mediaUrl             String?
+  contactPhone         String?
+  petName              String?
+  reward               Float?
+  userId               String
+  resolvedByUserId     String?
+  validatedSightingIds String[]           @default([])
+  pointsAwarded        Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user                 User               @relation(fields: [userId], references: [id])
+  resolvedByUser       User?              @relation("FoundReports", fields: [resolvedByUserId], references: [id])
+  messages             Message[]
+  pointTransactions    PointTransaction[]
+}
+
+model PointTransaction {
+  id        String   @id @default(uuid())
+  userId    String
+  amount    Int
+  reason    String // "PET_FOUND" (+100) | "GENUINE_SIGHTING" (+25)
+  reportId  String?
+  createdAt DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id])
+  report Report? @relation(fields: [reportId], references: [id])
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  content    String
+  senderId   String
+  receiverId String
+  reportId   String?
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  sender   User    @relation("SentMessages", fields: [senderId], references: [id])
+  receiver User    @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  report   Report? @relation(fields: [reportId], references: [id])
+}
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum Status {
+  ACTIVE
+  RESOLVED
+  DANGER
+}
+
+enum ReportType {
+  LOST
+  ADOPTION
+  SIGHTING
+  SUCCESS
+}
+
+enum Species {
+  DOG
+  CAT
+  BIRD
+  RABBIT
+  OTHER
+}

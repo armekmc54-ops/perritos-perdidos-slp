@@ -1,0 +1,31 @@
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+
+# NestJS
+backend/dist/
+
+# Entorno
+.env
+.env.local
+.env.*.local
+*.env
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Logs y sistema
+*.log
+.DS_Store
+
+# Vercel
+.vercel
+**/.vercel
+
+# Docker
+infra/postgres/data/

@@ -1,0 +1,137 @@
+@import "leaflet/dist/leaflet.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme="arena"] {
+  /* Tema 1: Arena SLP (Clásico Potosino de Día) */
+  --bg-page: #F8F6F0;
+  --bg-surface: #FFFFFF;
+  --bg-input: #F3EFEA;
+  --text-main: #1F2937;
+  --text-muted: #6B7280;
+  --border-color: #E5E0D8;
+  --brand-primary: #E8622C;
+  --brand-secondary: #2C5F8A;
+  --header-bg: #2C5F8A;
+  --header-text: #FFFFFF;
+}
+
+[data-theme="dark"] {
+  /* Tema 2: Modo Noche (Carbón y Neón - Contraparte Oscura) */
+  --bg-page: #0F0F12;
+  --bg-surface: #1A1A1F;
+  --bg-input: #26262E;
+  --text-main: #F4F4F6;
+  --text-muted: #9CA3AF;
+  --border-color: #2E2E38;
+  --brand-primary: #FF7438;
+  --brand-secondary: #3B82F6;
+  --header-bg: #141418;
+  --header-text: #FFFFFF;
+}
+
+[data-theme="sunset"] {
+  /* Tema 3: Atardecer Huasteco (Contraparte Cálida Terracota) */
+  --bg-page: #FFF1E6;
+  --bg-surface: #FFFFFF;
+  --bg-input: #FDE8D7;
+  --text-main: #431407;
+  --text-muted: #9A3412;
+  --border-color: #FDBA74;
+  --brand-primary: #EA580C;
+  --brand-secondary: #C2410C;
+  --header-bg: linear-gradient(135deg, #B91C1C 0%, #EA580C 100%);
+  --header-text: #FFFFFF;
+}
+
+[data-theme="esperanza"] {
+  /* Tema 4: Bosque de la Sierra (Contraparte Verde Esmeralda) */
+  --bg-page: #EBF5EE;
+  --bg-surface: #FFFFFF;
+  --bg-input: #DCF0E2;
+  --text-main: #063A20;
+  --text-muted: #166534;
+  --border-color: #86EFAC;
+  --brand-primary: #10B981;
+  --brand-secondary: #047857;
+  --header-bg: linear-gradient(135deg, #064E3B 0%, #047857 100%);
+  --header-text: #FFFFFF;
+}
+
+body {
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Quitar bordes y fondos blancos cuadrados por defecto de Leaflet divIcon */
+.leaflet-div-icon,
+.custom-leaflet-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Clases de tema dinámico para superficies, inputs y textos */
+.bg-theme-page {
+  background-color: var(--bg-page) !important;
+}
+
+.bg-theme-surface {
+  background-color: var(--bg-surface) !important;
+}
+
+.bg-theme-input {
+  background-color: var(--bg-input) !important;
+}
+
+.text-theme-main {
+  color: var(--text-main) !important;
+}
+
+.text-theme-muted {
+  color: var(--text-muted) !important;
+}
+
+.border-theme {
+  border-color: var(--border-color) !important;
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* Corrección de teselas y visualización de Leaflet con Tailwind */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1;
+}
+
+.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.leaflet-tile-container img {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.leaflet-pane {
+  z-index: 10 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 20 !important;
+}
+

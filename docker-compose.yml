@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pps-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgresql://postgres.txiycwjoxrwoasgdxsos:Pg47sPWzavecYwCx@aws-0-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true
+      - DIRECT_URL=postgresql://postgres.txiycwjoxrwoasgdxsos:Pg47sPWzavecYwCx@aws-0-us-east-2.pooler.supabase.com:5432/postgres
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_BACKEND_URL=http://localhost:3001/api/v1
+        - NEXTAUTH_URL=http://localhost:3000
+    container_name: pps-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - NEXTAUTH_SECRET=docker-production-secret-key-xyz
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:3001/api/v1

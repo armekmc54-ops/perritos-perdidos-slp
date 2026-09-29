@@ -1,0 +1,91 @@
+name: CI/CD Pipeline - Perritos Perdidos SLP
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend-test-and-build:
+    name: Backend CI & Spatial Stress Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: perritos-perdidos-slp/backend
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: perritos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+          cache-dependency-path: perritos-perdidos-slp/backend/package-lock.json
+
+      - name: Install Backend Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        env:
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/perritos_test?schema=public"
+        run: npx prisma generate
+
+      - name: Push Database Schema
+        env:
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/perritos_test?schema=public"
+        run: npx prisma db push --skip-generate
+
+      - name: Run Spatial & Stress Tests (Triangulation Engine)
+        run: npm test
+
+      - name: Build Backend (NestJS)
+        run: npm run build
+
+  frontend-lint-and-build:
+    name: Frontend CI & Production Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: perritos-perdidos-slp/frontend
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+          cache-dependency-path: perritos-perdidos-slp/frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Build Next.js Application
+        env:
+          NEXTAUTH_SECRET: "ci-secret-key-super-secure"
+          NEXTAUTH_URL: "http://localhost:3000"
+          NEXT_PUBLIC_BACKEND_URL: "http://localhost:3001/api/v1"
+        run: npm run build
