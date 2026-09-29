@@ -89,11 +89,11 @@ const getReportIcon = (report: Report, isSelected: boolean) => {
 
 const tempPinIcon = createCustomIcon('#EF4444', '📍', true); // Rojo Selección
 
-// Límites geográficos estrictos de la región de San Luis Potosí y zona metropolitana
+// Límites geográficos de la región de San Luis Potosí y zona metropolitana
 // Impide que el mapa se aleje al mapa mundial o navegue fuera de la región
 const SLP_BOUNDS: L.LatLngBoundsLiteral = [
-  [21.80, -101.35], // Suroeste (Villa de Arriaga / Villa de Reyes)
-  [22.45, -100.60], // Noreste (Soledad / Mexquitic / Cerros)
+  [21.65, -101.45], // Suroeste (Villa de Arriaga / Villa de Reyes / extensión equilibrada)
+  [22.65, -100.50], // Noreste (Soledad / Mexquitic / Cerros / extensión equilibrada)
 ];
 
 function MapExpandableText({ text }: { text: string }) {
@@ -229,6 +229,7 @@ interface MapProps {
   centerCoords?: [number, number];
   zoom?: number;
   onOpenMessageModal?: (report: Report) => void;
+  onOpenLightbox?: (images: string[], index: number) => void;
   triangulationData?: {
     lostReport: Report;
     sightings: Report[];
@@ -238,16 +239,61 @@ interface MapProps {
   activeTab?: string;
 }
 
-function MapPopupMedia({ mediaUrl, title }: { mediaUrl?: string | null; title: string }) {
+function MapPopupMedia({
+  mediaUrl,
+  title,
+  onOpenLightbox,
+}: {
+  mediaUrl?: string | null;
+  title: string;
+  onOpenLightbox?: (images: string[], index: number) => void;
+}) {
   const images = getReportImages(mediaUrl);
   const [index, setIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
 
   if (!images.length) return null;
 
   const currentImg = images[index] || images[0];
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null || images.length <= 1) return;
+    const diffX = e.changedTouches[0].clientX - touchStartX.current;
+    const diffY = e.changedTouches[0].clientY - touchStartY.current;
+
+    // Solo considerar swipe si el movimiento horizontal supera al vertical y es de más de 35px
+    if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
+      if (diffX < 0) {
+        // Deslizar a la izquierda -> siguiente foto
+        setIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+      } else {
+        // Deslizar a la derecha -> foto anterior
+        setIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+      }
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
   return (
-    <div className="relative w-full h-20 sm:h-24 bg-zinc-950 rounded-xl overflow-hidden mb-1 flex items-center justify-center shadow-xs select-none">
+    <div
+      className="relative w-full h-20 sm:h-24 bg-zinc-950 rounded-xl overflow-hidden mb-1 flex items-center justify-center shadow-xs select-none cursor-pointer group"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onClick={(e) => {
+        L.DomEvent.stopPropagation(e as any);
+        if (onOpenLightbox) {
+          onOpenLightbox(images, index);
+        }
+      }}
+      title="Toca para ver la foto en pantalla completa"
+    >
       <img
         src={currentImg}
         alt=""
@@ -257,8 +303,14 @@ function MapPopupMedia({ mediaUrl, title }: { mediaUrl?: string | null; title: s
       <img
         src={currentImg}
         alt={title}
-        className="relative z-10 max-h-full max-w-full object-contain"
+        className="relative z-10 max-h-full max-w-full object-contain pointer-events-none"
       />
+
+      {/* Indicador de lupa para abrir foto completa */}
+      <div className="absolute top-1 right-1 z-20 bg-black/60 group-hover:bg-black text-white p-0.5 rounded-full text-[9px] shadow-sm pointer-events-none">
+        🔍
+      </div>
+
       {images.length > 1 && (
         <>
           <button
@@ -301,8 +353,9 @@ export default function Map({
   pickedLocation,
   onLocationPicked,
   centerCoords = [22.1565, -100.9855],
-  zoom = 13,
+  zoom = 12,
   onOpenMessageModal,
+  onOpenLightbox,
   triangulationData,
   onExitTriangulation,
   activeTab,
@@ -381,7 +434,7 @@ export default function Map({
       <MapContainer
         center={centerCoords}
         zoom={zoom}
-        minZoom={12}
+        minZoom={11}
         maxZoom={18}
         maxBounds={SLP_BOUNDS}
         maxBoundsViscosity={1.0}
@@ -391,7 +444,7 @@ export default function Map({
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          minZoom={12}
+          minZoom={11}
           maxZoom={18}
         />
 
@@ -489,7 +542,11 @@ export default function Map({
                 minWidth={190}
               >
                 <div className="p-0.5 max-w-[210px]">
-                  <MapPopupMedia mediaUrl={report.mediaUrl} title={report.petName || report.title} />
+                  <MapPopupMedia
+                    mediaUrl={report.mediaUrl}
+                    title={report.petName || report.title}
+                    onOpenLightbox={onOpenLightbox}
+                  />
                   <div className="flex items-center gap-1 mb-1">
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${badgeColor}`}>
                       {label}

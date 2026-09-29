@@ -121,6 +121,31 @@ function ReportCardGallery({
 }) {
   const images = getReportImages(mediaUrl);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null || images.length <= 1) return;
+    const diffX = e.changedTouches[0].clientX - touchStartX.current;
+    const diffY = e.changedTouches[0].clientY - touchStartY.current;
+
+    if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
+      if (diffX < 0) {
+        // Deslizar izquierda -> siguiente foto
+        setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+      } else {
+        // Deslizar derecha -> foto anterior
+        setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+      }
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
 
   const renderBadges = () => (
     <div className="absolute top-2 left-2 z-20 flex flex-wrap gap-1 max-w-[85%] pointer-events-none">
@@ -170,6 +195,8 @@ function ReportCardGallery({
       {/* Contenedor de la foto completa con fondo ambiental difuminado */}
       <div
         className="relative h-36 sm:h-40 w-full overflow-hidden flex items-center justify-center cursor-pointer select-none bg-zinc-950"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         onClick={(e) => {
           e.stopPropagation();
           onOpenLightbox(images, currentIndex);
@@ -282,7 +309,7 @@ export default function Home() {
   const [filterNearby5km, setFilterNearby5km] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>(SLP_CENTER);
-  const [mapZoom, setMapZoom] = useState<number>(13);
+  const [mapZoom, setMapZoom] = useState<number>(12);
 
   // Estados para enviar mensajes directos a dueños de perritos
   const [messagingReport, setMessagingReport] = useState<Report | null>(null);
@@ -316,6 +343,8 @@ export default function Home() {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isCompressingPhotos, setIsCompressingPhotos] = useState(false);
   const [lightboxData, setLightboxData] = useState<{ images: string[]; index: number } | null>(null);
+  const lightboxTouchStartX = useRef<number | null>(null);
+  const lightboxTouchStartY = useRef<number | null>(null);
 
   const [formData, setFormData] = useState({
     petName: '',
@@ -834,13 +863,13 @@ export default function Home() {
     return [lat + offset, lng];
   };
 
-  // Alternar selección de perrito: hacer zoom a nivel de calle (16) o regresar al mapa completo (13)
+  // Alternar selección de perrito: hacer zoom a nivel de calle (16) o regresar al mapa completo (12)
   const handleCardClick = (report: Report) => {
     if (selectedReportId === report.id) {
       // Deseleccionar: regresar a vista general de SLP
       setSelectedReportId(null);
       setMapCenter(SLP_CENTER);
-      setMapZoom(13);
+      setMapZoom(12);
     } else {
       // Enfocar y hacer zoom a nivel de calle (16) con compensación óptica para centrado perfecto
       setSelectedReportId(report.id);
@@ -858,7 +887,7 @@ export default function Home() {
       // Segundo clic en el mismo pin: deseleccionar y alejar
       setSelectedReportId(null);
       setMapCenter(SLP_CENTER);
-      setMapZoom(13);
+      setMapZoom(12);
     } else {
       // Enfocar pin y hacer zoom a nivel de calle con compensación óptica
       setSelectedReportId(report.id);
@@ -879,7 +908,7 @@ export default function Home() {
   const handleDeselectMap = () => {
     setSelectedReportId(null);
     setMapCenter(SLP_CENTER);
-    setMapZoom(13);
+    setMapZoom(12);
   };
 
   // Abrir modal de mensaje directo para un perrito
@@ -1200,6 +1229,7 @@ export default function Home() {
               zoom={mapZoom}
               centerCoords={mapCenter}
               onOpenMessageModal={(report) => handleOpenSendMessage(report)}
+              onOpenLightbox={(imgs, idx) => setLightboxData({ images: imgs, index: idx })}
               triangulationData={triangulationData}
               onExitTriangulation={() => setTriangulationData(null)}
               isPickingLocation={isPickingOnMap}
@@ -1452,7 +1482,7 @@ export default function Home() {
                                     details: triData,
                                   });
                                   setMapCenter([report.latitude, report.longitude]);
-                                  setMapZoom(14);
+                                  setMapZoom(13);
                                   if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                                     setMobileTab('map');
                                   }
@@ -1460,7 +1490,7 @@ export default function Home() {
                                   console.error('Error calculando triangulación:', err);
                                   alert('⏱️ Ya ha transcurrido el tiempo límite para estimar la ruta o aún no hay avistamientos registrados para este reporte.\n\nMostrando ubicación original.');
                                   setMapCenter([report.latitude, report.longitude]);
-                                  setMapZoom(14);
+                                  setMapZoom(13);
                                   if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                                     setMobileTab('map');
                                   }
@@ -2221,10 +2251,40 @@ export default function Home() {
             </div>
           )}
 
-          {/* Contenedor de la foto sin recortes */}
+          {/* Contenedor de la foto sin recortes con soporte táctil para deslizar */}
           <div
-            className="relative max-w-5xl max-h-[85vh] w-full h-full flex items-center justify-center"
+            className="relative max-w-5xl max-h-[85vh] w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing"
             onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => {
+              lightboxTouchStartX.current = e.touches[0].clientX;
+              lightboxTouchStartY.current = e.touches[0].clientY;
+            }}
+            onTouchEnd={(e) => {
+              if (
+                lightboxTouchStartX.current === null ||
+                lightboxTouchStartY.current === null ||
+                !lightboxData ||
+                lightboxData.images.length <= 1
+              )
+                return;
+              const diffX = e.changedTouches[0].clientX - lightboxTouchStartX.current;
+              const diffY = e.changedTouches[0].clientY - lightboxTouchStartY.current;
+              if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
+                if (diffX < 0) {
+                  // Swipe a la izquierda -> siguiente foto
+                  setLightboxData((prev) =>
+                    prev ? { ...prev, index: prev.index < prev.images.length - 1 ? prev.index + 1 : 0 } : null
+                  );
+                } else {
+                  // Swipe a la derecha -> foto anterior
+                  setLightboxData((prev) =>
+                    prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.images.length - 1 } : null
+                  );
+                }
+              }
+              lightboxTouchStartX.current = null;
+              lightboxTouchStartY.current = null;
+            }}
           >
             <img
               src={lightboxData.images[lightboxData.index]}

@@ -11,6 +11,54 @@ export default function Footer() {
       <footer className="mt-12 border-t border-theme bg-theme-surface/90 text-theme-main py-10 px-4 md:px-8 transition-colors">
         <div className="max-w-6xl mx-auto flex flex-col gap-8">
           
+          {/* BANNER OFICIAL: PRÓXIMAMENTE EN IOS Y ANDROID */}
+          <div className="bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 border border-zinc-700/60 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+            <div className="absolute -right-8 -top-8 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div className="flex items-center gap-4 text-center md:text-left z-10">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-paliacate text-white flex items-center justify-center text-3xl shrink-0 shadow-lg shadow-paliacate/20">
+                📲
+              </div>
+              <div>
+                <div className="flex items-center gap-2 justify-center md:justify-start flex-wrap mb-1">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-400 text-zinc-950 px-2.5 py-0.5 rounded-full shadow-xs">
+                    🚀 En Desarrollo Activo
+                  </span>
+                  <span className="text-[11px] font-bold text-amber-300">
+                    Apps Móviles Nativas
+                  </span>
+                </div>
+                <h3 className="text-base md:text-xl font-extrabold text-white">
+                  Próximamente en iOS (App Store) y Android (Google Play)
+                </h3>
+                <p className="text-xs text-zinc-300 max-w-xl mt-1 leading-relaxed">
+                  Llevamos el compromiso de rescate animal en San Luis Potosí al siguiente nivel. Muy pronto podrás recibir alertas geolocalizadas instantáneas con notificaciones push directas en tu teléfono.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 z-10 flex-wrap justify-center">
+              {/* Badge App Store */}
+              <div className="flex items-center gap-2.5 bg-black/70 border border-zinc-600/80 px-4 py-2.5 rounded-2xl shadow-md text-white select-none">
+                <span className="text-2xl">🍏</span>
+                <div className="text-left">
+                  <span className="text-[9px] uppercase tracking-wider block text-zinc-400 leading-tight">Descarga en</span>
+                  <span className="text-xs font-bold font-sans">App Store</span>
+                </div>
+                <span className="text-[10px] font-bold bg-zinc-800 text-amber-300 px-1.5 py-0.5 rounded ml-1 border border-zinc-700">Próximamente</span>
+              </div>
+
+              {/* Badge Google Play */}
+              <div className="flex items-center gap-2.5 bg-black/70 border border-zinc-600/80 px-4 py-2.5 rounded-2xl shadow-md text-white select-none">
+                <span className="text-2xl">🤖</span>
+                <div className="text-left">
+                  <span className="text-[9px] uppercase tracking-wider block text-zinc-400 leading-tight">Disponible en</span>
+                  <span className="text-xs font-bold font-sans">Google Play</span>
+                </div>
+                <span className="text-[10px] font-bold bg-zinc-800 text-amber-300 px-1.5 py-0.5 rounded ml-1 border border-zinc-700">Próximamente</span>
+              </div>
+            </div>
+          </div>
+
           {/* BANNER 1: MARCAS Y ORGANIZACIONES COLABORADORAS */}
           <div className="bg-gradient-to-r from-paliacate/10 via-amber-500/10 to-confianza/10 border border-theme rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xs">
             <div className="flex items-center gap-4 text-center md:text-left">
