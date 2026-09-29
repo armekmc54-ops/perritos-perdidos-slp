@@ -89,15 +89,22 @@ const getReportIcon = (report: Report, isSelected: boolean) => {
 
 const tempPinIcon = createCustomIcon('#EF4444', '📍', true); // Rojo Selección
 
+// Límites geográficos estrictos de la región de San Luis Potosí y zona metropolitana
+// Impide que el mapa se aleje al mapa mundial o navegue fuera de la región
+const SLP_BOUNDS: L.LatLngBoundsLiteral = [
+  [21.80, -101.35], // Suroeste (Villa de Arriaga / Villa de Reyes)
+  [22.45, -100.60], // Noreste (Soledad / Mexquitic / Cerros)
+];
+
 function MapExpandableText({ text }: { text: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
   if (!text) return null;
-  const isLong = text.length > 60;
+  const isLong = text.length > 45;
 
   return (
-    <div className="text-[11px] text-gray-600 mt-0.5 leading-snug">
+    <div className="text-[11px] text-theme-muted mt-0.5 leading-snug">
       <p className="whitespace-pre-line">
-        {isLong && !isExpanded ? `${text.slice(0, 60).trim()}...` : text}
+        {isLong && !isExpanded ? `${text.slice(0, 45).trim()}...` : text}
       </p>
       {isLong && (
         <button
@@ -240,7 +247,7 @@ function MapPopupMedia({ mediaUrl, title }: { mediaUrl?: string | null; title: s
   const currentImg = images[index] || images[0];
 
   return (
-    <div className="relative w-full h-28 bg-zinc-950 rounded-xl overflow-hidden mb-2 flex items-center justify-center shadow-xs select-none">
+    <div className="relative w-full h-20 sm:h-24 bg-zinc-950 rounded-xl overflow-hidden mb-1 flex items-center justify-center shadow-xs select-none">
       <img
         src={currentImg}
         alt=""
@@ -374,13 +381,18 @@ export default function Map({
       <MapContainer
         center={centerCoords}
         zoom={zoom}
+        minZoom={12}
+        maxZoom={18}
+        maxBounds={SLP_BOUNDS}
+        maxBoundsViscosity={1.0}
         className="w-full h-full"
         style={{ height: '100%', width: '100%', zIndex: 0 }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maxZoom={19}
+          minZoom={12}
+          maxZoom={18}
         />
 
         <MapEventsHandler
@@ -470,35 +482,35 @@ export default function Map({
               <Popup
                 className="custom-popup"
                 autoPan={true}
-                autoPanPaddingTopLeft={L.point(20, 80)}
-                autoPanPaddingBottomRight={L.point(20, 20)}
+                autoPanPaddingTopLeft={L.point(10, 110)}
+                autoPanPaddingBottomRight={L.point(10, 20)}
                 keepInView={true}
-                maxWidth={240}
-                minWidth={200}
+                maxWidth={215}
+                minWidth={190}
               >
-                <div className="p-0.5 max-w-[220px]">
+                <div className="p-0.5 max-w-[210px]">
                   <MapPopupMedia mediaUrl={report.mediaUrl} title={report.petName || report.title} />
                   <div className="flex items-center gap-1 mb-1">
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${badgeColor}`}>
                       {label}
                     </span>
                     {isSelected && (
-                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-400 text-carbon">
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-400 text-gray-900">
                         🎯 Enfocado
                       </span>
                     )}
                   </div>
                   {report.reward && report.reward > 0 && (
-                    <div className="mb-1 text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                    <div className="mb-1 text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded-md flex items-center gap-1">
                       <span>💰</span> Recompensa: ${report.reward.toLocaleString('es-MX')} MXN
                     </div>
                   )}
-                  <h4 className="font-bold text-xs text-carbon leading-snug">
+                  <h4 className="font-bold text-xs text-theme-main leading-tight truncate">
                     {report.petName || report.title}
                   </h4>
                   <MapExpandableText text={report.description} />
 
-                  <div className="mt-2 pt-1.5 border-t border-gray-200 flex flex-col gap-1">
+                  <div className="mt-1.5 pt-1.5 border-t border-theme/40 flex items-center gap-1.5">
                     {onOpenMessageModal && (
                       <button
                         type="button"
@@ -506,9 +518,10 @@ export default function Map({
                           e.stopPropagation();
                           onOpenMessageModal(report);
                         }}
-                        className="w-full bg-confianza hover:opacity-90 text-white text-[11px] font-bold py-1 px-2.5 rounded-lg shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                        className="flex-1 bg-confianza hover:opacity-90 active:scale-95 text-white text-[10px] font-bold py-1 px-1.5 rounded-lg shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                        title="Enviar mensaje en la plataforma"
                       >
-                        <span>💬</span> Enviar Mensaje
+                        <span>💬</span> Mensaje
                       </button>
                     )}
 
@@ -519,7 +532,8 @@ export default function Map({
                         )}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-1 w-full bg-green-500 hover:bg-green-600 text-white text-[11px] font-bold py-1 px-2.5 rounded-lg shadow-xs transition cursor-pointer"
+                        className="flex-1 bg-green-500 hover:bg-green-600 active:scale-95 text-white text-[10px] font-bold py-1 px-1.5 rounded-lg shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                        title="WhatsApp"
                       >
                         <span>📱</span> WhatsApp
                       </a>

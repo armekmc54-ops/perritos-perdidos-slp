@@ -743,7 +743,7 @@ export default function Home() {
       // Añadimos reactivamente el reporte a la lista y seleccionamos
       setReports((prev) => [created, ...prev]);
       setSelectedReportId(created.id);
-      setMapCenter([created.latitude + 0.0030, created.longitude]);
+      setMapCenter(getOptimalFocusCenter(created.latitude, created.longitude));
       setMapZoom(16);
 
       // Cerramos modal y reseteamos campos
@@ -824,6 +824,16 @@ export default function Home() {
     }
   };
 
+  // Calcula el centro óptico para enfocar un reporte en el mapa
+  // En móviles el mapa tiene menos altura disponible y hay barras de pestañas y botones,
+  // por lo que una compensación de ~0.0015 centra perfectamente el marcador y el popup sin recortarse arriba.
+  // En PC (pantallas grandes), una compensación de ~0.0026 ofrece un centrado óptico equilibrado.
+  const getOptimalFocusCenter = (lat: number, lng: number): [number, number] => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+    const offset = isMobile ? 0.0015 : 0.0026;
+    return [lat + offset, lng];
+  };
+
   // Alternar selección de perrito: hacer zoom a nivel de calle (16) o regresar al mapa completo (13)
   const handleCardClick = (report: Report) => {
     if (selectedReportId === report.id) {
@@ -832,9 +842,9 @@ export default function Home() {
       setMapCenter(SLP_CENTER);
       setMapZoom(13);
     } else {
-      // Enfocar y hacer zoom a nivel de calle (16) con compensación norte (+0.0030) para centrado óptico del popup
+      // Enfocar y hacer zoom a nivel de calle (16) con compensación óptica para centrado perfecto
       setSelectedReportId(report.id);
-      setMapCenter([report.latitude + 0.0030, report.longitude]);
+      setMapCenter(getOptimalFocusCenter(report.latitude, report.longitude));
       setMapZoom(16);
       if (typeof window !== 'undefined' && window.innerWidth < 1024) {
         setMobileTab('map');
@@ -850,9 +860,9 @@ export default function Home() {
       setMapCenter(SLP_CENTER);
       setMapZoom(13);
     } else {
-      // Enfocar pin y hacer zoom a nivel de calle con compensación norte para centrado óptico
+      // Enfocar pin y hacer zoom a nivel de calle con compensación óptica
       setSelectedReportId(report.id);
-      setMapCenter([report.latitude + 0.0030, report.longitude]);
+      setMapCenter(getOptimalFocusCenter(report.latitude, report.longitude));
       setMapZoom(16);
 
       // Desplazar el feed suavemente hacia la tarjeta correspondiente
