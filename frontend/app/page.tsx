@@ -158,6 +158,8 @@ export default function Home() {
   };
 
   const feedRef = useRef<HTMLDivElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Auto pre-llenar teléfono del usuario autenticado si existe
   useEffect(() => {
@@ -1386,55 +1388,107 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Fotografía del Perrito o Avistamiento */}
+              {/* Fotografía del Perrito o Avistamiento con opción de Cámara Directa y Galería */}
               <div>
-                <label className="block text-xs font-bold text-theme-main uppercase tracking-wider mb-1.5">
-                  {formData.type === 'SIGHTING'
-                    ? 'Fotografía del Avistamiento (Clave para IA)'
-                    : 'Fotografía del Perrito'}
+                <label className="block text-xs font-bold text-theme-main uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span>
+                    {formData.type === 'SIGHTING'
+                      ? '📸 Fotografía del Avistamiento (Clave para IA)'
+                      : '📸 Fotografía del Perrito'}
+                  </span>
+                  <span className="text-[10px] text-theme-muted font-normal">Cámara o archivo</span>
                 </label>
-                <div className="flex flex-col gap-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageFileChange}
-                    className="text-xs text-theme-muted file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-theme-input file:text-theme-main hover:file:opacity-80 cursor-pointer"
-                  />
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-theme-muted">O ingresa un enlace:</span>
-                    <input
-                      type="url"
-                      value={formData.mediaUrl.startsWith('data:') ? '' : formData.mediaUrl}
-                      onChange={(e) => {
-                        setFormData({ ...formData, mediaUrl: e.target.value });
-                        setImagePreview(e.target.value);
-                      }}
-                      placeholder="https://ejemplo.com/foto.jpg"
-                      className="flex-1 bg-theme-input border border-theme rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-paliacate text-theme-main"
-                    />
-                  </div>
-                </div>
 
-                {/* Previsualización de la foto */}
-                {imagePreview && (
-                  <div className="mt-2 relative w-full h-36 rounded-xl overflow-hidden border border-theme">
+                {/* Inputs ocultos para Cámara directa (capture) y Galería */}
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImageFileChange}
+                  className="hidden"
+                />
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageFileChange}
+                  className="hidden"
+                />
+
+                {!imagePreview ? (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {/* Botón de Cámara: Pide permiso al usuario y abre la cámara del celular al instante */}
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="py-3.5 px-3 rounded-2xl bg-paliacate/10 hover:bg-paliacate/20 border-2 border-dashed border-paliacate/60 text-paliacate font-bold text-xs sm:text-sm flex flex-col items-center justify-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+                    >
+                      <span className="text-3xl">📷</span>
+                      <span>Tomar Foto</span>
+                      <span className="text-[10px] text-paliacate/80 font-medium">Abrir cámara del celular</span>
+                    </button>
+
+                    {/* Botón de Galería: Permite seleccionar una foto guardada */}
+                    <button
+                      type="button"
+                      onClick={() => galleryInputRef.current?.click()}
+                      className="py-3.5 px-3 rounded-2xl bg-theme-input hover:opacity-80 border-2 border-dashed border-theme text-theme-main font-bold text-xs sm:text-sm flex flex-col items-center justify-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+                    >
+                      <span className="text-3xl">🖼️</span>
+                      <span>Subir Galería</span>
+                      <span className="text-[10px] text-theme-muted font-normal">Fotos guardadas</span>
+                    </button>
+                  </div>
+                ) : (
+                  /* Previsualización cuando ya se tomó o subió la foto */
+                  <div className="relative w-full h-44 rounded-2xl overflow-hidden border-2 border-paliacate shadow-md">
                     <img
                       src={imagePreview}
                       alt="Previsualización"
                       className="w-full h-full object-cover"
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setImagePreview(null);
-                        setFormData({ ...formData, mediaUrl: '' });
-                      }}
-                      className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md font-bold hover:bg-black"
-                    >
-                      Quitar
-                    </button>
+                    <div className="absolute top-2 left-2 bg-esperanza text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1">
+                      <span>✓</span> Foto lista
+                    </div>
+                    <div className="absolute bottom-2 right-2 flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => cameraInputRef.current?.click()}
+                        className="bg-black/75 hover:bg-black text-white text-xs px-3 py-1.5 rounded-xl font-bold backdrop-blur-xs flex items-center gap-1 shadow-md transition cursor-pointer"
+                      >
+                        <span>📷</span> Retomar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImagePreview(null);
+                          setFormData((prev) => ({ ...prev, mediaUrl: '' }));
+                        }}
+                        className="bg-red-600/90 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-xl font-bold shadow-md transition cursor-pointer"
+                      >
+                        ✕ Quitar
+                      </button>
+                    </div>
                   </div>
                 )}
+
+                {/* Opción alternativa: pegar enlace de imagen web */}
+                <div className="mt-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-theme-muted shrink-0">O por enlace:</span>
+                    <input
+                      type="url"
+                      value={formData.mediaUrl.startsWith('data:') ? '' : formData.mediaUrl}
+                      onChange={(e) => {
+                        setFormData({ ...formData, mediaUrl: e.target.value });
+                        setImagePreview(e.target.value || null);
+                      }}
+                      placeholder="https://ejemplo.com/foto.jpg"
+                      className="flex-1 bg-theme-input border border-theme rounded-xl px-2.5 py-1.5 text-xs outline-none focus:border-paliacate text-theme-main"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Selección de Ubicación */}
