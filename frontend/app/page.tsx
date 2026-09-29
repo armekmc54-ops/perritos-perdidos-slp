@@ -5,6 +5,7 @@ import {
   getReports,
   createReport,
   updateReportStatus,
+  deleteReport,
   Report,
   ReportType,
   ReportStatus,
@@ -117,6 +118,7 @@ export default function Home() {
     petName: '',
     type: 'LOST' as ReportType,
     species: 'DOG' as Species,
+    customSpecies: '',
     breed: '',
     primaryColor: '',
     size: 'MEDIANO',
@@ -381,12 +383,28 @@ export default function Home() {
 
     setIsSubmitting(true);
     try {
+      const animalTypeName = formData.species === 'DOG' ? 'Perro'
+        : formData.species === 'CAT' ? 'Gato'
+        : formData.species === 'BIRD' ? 'Ave'
+        : formData.species === 'RABBIT' ? 'Conejo'
+        : formData.customSpecies.trim() || 'Mascota';
+
+      const defaultTitle = formData.type === 'SIGHTING'
+        ? `Avistamiento de ${animalTypeName}`
+        : formData.type === 'ADOPTION'
+        ? `${animalTypeName} en adopción`
+        : `${animalTypeName} extraviado`;
+
+      const breedValue = formData.species === 'OTHER' && formData.customSpecies.trim()
+        ? (formData.breed.trim() ? `${formData.customSpecies.trim()} - ${formData.breed.trim()}` : formData.customSpecies.trim())
+        : formData.breed.trim() || undefined;
+
       const created = await createReport({
-        title: formData.petName.trim() || `Reporte de ${formData.species === 'DOG' ? 'Perrito' : formData.species === 'CAT' ? 'Gatito' : 'Mascota'}`,
+        title: formData.petName.trim() || defaultTitle,
         petName: formData.petName.trim() || undefined,
         type: formData.type,
         species: formData.species,
-        breed: formData.breed.trim() || undefined,
+        breed: breedValue,
         primaryColor: formData.primaryColor.trim() || undefined,
         size: formData.size || undefined,
         description: formData.description.trim(),
@@ -410,6 +428,7 @@ export default function Home() {
         petName: '',
         type: 'LOST',
         species: 'DOG',
+        customSpecies: '',
         breed: '',
         primaryColor: '',
         size: 'MEDIANO',
@@ -451,6 +470,48 @@ export default function Home() {
     // Abrimos el panel de perfil en la pestaña de reportes donde el dueño puede seleccionar al rescatista y otorgar puntos
     setProfileModalTab('reports');
     setIsProfileModalOpen(true);
+  };
+
+  // Eliminar un reporte permanentemente (Admins pueden borrar cualquiera, Usuarios sus propios reportes)
+  const handleDeleteReport = async (report: Report, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+
+    if (!session?.user?.email) {
+      alert('🔒 Inicia sesión para gestionar o eliminar reportes.');
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    const isAdmin = (session.user as any)?.role === 'ADMIN';
+    const isOwner =
+      report.user?.email?.toLowerCase() === session.user.email?.toLowerCase() ||
+      report.userId === (session.user as any)?.id;
+
+    if (!isAdmin && !isOwner) {
+      alert('🔒 Únicamente el autor original de la publicación o un Administrador pueden eliminar este reporte.');
+      return;
+    }
+
+    const petName = report.petName || report.title || 'este reporte';
+    const confirmed = window.confirm(
+      `¿Estás seguro de que deseas eliminar permanentemente el reporte de "${petName}"? Esta acción no se puede deshacer.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteReport(report.id, session.user.email);
+      setReports((prev) => prev.filter((r) => r.id !== report.id));
+      if (selectedReportId === report.id) {
+        setSelectedReportId(null);
+      }
+      if (triangulationData?.lostReport?.id === report.id) {
+        setTriangulationData(null);
+      }
+      alert(`El reporte de "${petName}" ha sido eliminado exitosamente.`);
+    } catch (err: any) {
+      console.error('Error al eliminar el reporte:', err);
+      alert(err.message || 'No se pudo eliminar el reporte. Por favor intenta de nuevo.');
+    }
   };
 
   // Alternar selección de perrito: hacer zoom a nivel de calle (16) o regresar al mapa completo (13)
@@ -510,7 +571,7 @@ export default function Home() {
     }
     setMessagingReport(report);
     setMessageText(
-      `Hola, te contacto por el reporte de "${report.petName || report.title}" en Perritos Perdidos SLP.`
+      `Hola, te contacto por el reporte de "${report.petName || report.title}" en Perritos o Animales Perdidos.`
     );
   };
 
@@ -553,7 +614,7 @@ export default function Home() {
           </div>
           <div className="min-w-0">
             <h1 className="font-bold text-base sm:text-xl tracking-wide leading-tight truncate">
-              Perritos Perdidos SLP
+              Perritos o Animales Perdidos
             </h1>
             <p className="text-[11px] text-white/80 hidden sm:block truncate">
               Red comunitaria de rescate y adopción en San Luis Potosí
@@ -1052,7 +1113,28 @@ export default function Home() {
                           </span>
                         )}
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                          {/* Botón de Eliminar Reporte (Visible para el Dueño o un Administrador) */}
+                          {(() => {
+                            const isAdmin = (session?.user as any)?.role === 'ADMIN';
+                            const isOwner =
+                              Boolean(session?.user?.email &&
+                              (report.user?.email?.toLowerCase() === session?.user?.email?.toLowerCase() ||
+                                report.userId === (session?.user as any)?.id));
+                            if (!isAdmin && !isOwner) return null;
+
+                            return (
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteReport(report, e)}
+                                className="text-[11px] font-bold px-2 py-1 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 transition flex items-center gap-1"
+                                title={isAdmin ? 'Eliminar reporte (Permiso Administrador)' : 'Eliminar mi publicación permanentemente'}
+                              >
+                                <span>🗑️</span> Eliminar
+                              </button>
+                            );
+                          })()}
+
                           {/* Botón de Triangulación Rápida si es un reporte de animal perdido */}
                           {report.type === 'LOST' && (
                             <button
@@ -1115,7 +1197,7 @@ export default function Home() {
                         {report.contactPhone && (
                           <a
                             href={`https://wa.me/${report.contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                              `Hola, te contacto por el reporte de "${report.petName || report.title}" en Perritos Perdidos SLP`
+                              `Hola, te contacto por el reporte de "${report.petName || report.title}" en Perritos o Animales Perdidos`
                             )}`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -1272,22 +1354,73 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Nombre o Referencia */}
+              {/* Campo extra para especificar cuando la especie seleccionada es 'OTRO' */}
+              {formData.species === 'OTHER' && (
+                <div className="bg-theme-input/50 p-3 rounded-2xl border border-theme animate-fadeIn">
+                  <label className="block text-xs font-bold text-theme-main uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <span>¿Qué tipo de animal o especie es? *</span>
+                    <span className="text-[10px] text-paliacate font-bold">Especifica especie</span>
+                  </label>
+                  <input
+                    type="text"
+                    required={formData.species === 'OTHER'}
+                    value={formData.customSpecies}
+                    onChange={(e) => setFormData({ ...formData, customSpecies: e.target.value })}
+                    placeholder="Ej. Hurón, Tortuga, Erizo, Caballo, Loro..."
+                    className="w-full bg-theme-surface border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main font-semibold"
+                  />
+                </div>
+              )}
+
+              {/* Nombre o Referencia Dinámico según la Especie */}
               <div>
                 <label className="block text-xs font-bold text-theme-main uppercase tracking-wider mb-1.5">
-                  {formData.type === 'SIGHTING'
-                    ? 'Referencia o Nombre del Perrito'
-                    : 'Nombre del perrito / Referencia'}
+                  {(() => {
+                    const animalLabel =
+                      formData.species === 'DOG'
+                        ? 'Perro'
+                        : formData.species === 'CAT'
+                        ? 'Gato'
+                        : formData.species === 'BIRD'
+                        ? 'Ave'
+                        : formData.species === 'RABBIT'
+                        ? 'Conejo'
+                        : formData.customSpecies.trim() || 'Animal';
+
+                    return formData.type === 'SIGHTING'
+                      ? `Referencia o Nombre del ${animalLabel} Visto`
+                      : `Nombre del ${animalLabel} / Referencia`;
+                  })()}
                 </label>
                 <input
                   type="text"
                   value={formData.petName}
                   onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
-                  placeholder={
-                    formData.type === 'SIGHTING'
-                      ? 'Ej. Perro mestizo café visto en glorieta, collar rojo...'
-                      : 'Ej. Solovino, Cachorro Golden, Sin nombre...'
-                  }
+                  placeholder={(() => {
+                    if (formData.species === 'DOG') {
+                      return formData.type === 'SIGHTING'
+                        ? 'Ej. Perro mestizo café visto en glorieta, collar rojo...'
+                        : 'Ej. Solovino, Firulais, Golden Retriever...';
+                    }
+                    if (formData.species === 'CAT') {
+                      return formData.type === 'SIGHTING'
+                        ? 'Ej. Gato siamés con collar azul visto en azotea...'
+                        : 'Ej. Michi, Minino, Siamés...';
+                    }
+                    if (formData.species === 'BIRD') {
+                      return formData.type === 'SIGHTING'
+                        ? 'Ej. Perico australiano verde visto en parque...'
+                        : 'Ej. Piolín, Ninfa, Cotorro...';
+                    }
+                    if (formData.species === 'RABBIT') {
+                      return formData.type === 'SIGHTING'
+                        ? 'Ej. Conejo blanco enano visto en jardín...'
+                        : 'Ej. Tambor, Orejitas, Manchas...';
+                    }
+                    return formData.type === 'SIGHTING'
+                      ? `Ej. ${formData.customSpecies.trim() || 'Animal'} visto cruzando la calle...`
+                      : `Ej. Nombre de la mascota o seña particular...`;
+                  })()}
                   className="w-full bg-theme-input border border-theme rounded-xl p-3 text-sm outline-none focus:border-paliacate text-theme-main"
                 />
               </div>
@@ -1555,6 +1688,15 @@ export default function Home() {
           setReports((prev) =>
             prev.map((r) => (r.id === updatedReport.id ? updatedReport : r))
           );
+        }}
+        onReportDeleted={(deletedReportId) => {
+          setReports((prev) => prev.filter((r) => r.id !== deletedReportId));
+          if (selectedReportId === deletedReportId) {
+            setSelectedReportId(null);
+          }
+          if (triangulationData?.lostReport?.id === deletedReportId) {
+            setTriangulationData(null);
+          }
         }}
         onTriangulateReport={(lostReport, sightings, triDetails) => {
           setTriangulationData({ lostReport, sightings, details: triDetails });

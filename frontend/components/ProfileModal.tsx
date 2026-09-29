@@ -17,6 +17,7 @@ import {
   getTriangulationData,
   TriangulationData,
   Species,
+  deleteReport,
 } from '../services/api';
 
 interface ProfileModalProps {
@@ -27,6 +28,7 @@ interface ProfileModalProps {
   allReports?: Report[];
   onSelectReport?: (report: Report) => void;
   onReportUpdated?: (report: Report) => void;
+  onReportDeleted?: (reportId: string) => void;
   onTriangulateReport?: (lostReport: Report, sightings: Report[], triangulationData?: TriangulationData) => void;
   initialTab?: 'notifications' | 'reports' | 'settings';
 }
@@ -61,6 +63,7 @@ export default function ProfileModal({
   allReports = [],
   onSelectReport,
   onReportUpdated,
+  onReportDeleted,
   onTriangulateReport,
   initialTab = 'notifications',
 }: ProfileModalProps) {
@@ -363,6 +366,32 @@ export default function ProfileModal({
       setResolveError(err.message || 'Error al resolver el reporte');
     } finally {
       setIsResolvingSubmitting(false);
+    }
+  };
+
+  const handleDeleteUserReport = async (reportId: string, title?: string) => {
+    const petTitle = title || 'este reporte';
+    const confirmed = window.confirm(
+      `¿Estás seguro de que deseas eliminar permanentemente el reporte "${petTitle}"? Esta acción no se puede deshacer.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const requesterEmail = session?.user?.email || undefined;
+      await deleteReport(reportId, requesterEmail);
+      if (profile) {
+        setProfile({
+          ...profile,
+          reports: profile.reports?.filter((r) => r.id !== reportId),
+        });
+      }
+      if (onReportDeleted) {
+        onReportDeleted(reportId);
+      }
+      alert(`Reporte "${petTitle}" eliminado exitosamente.`);
+    } catch (err: any) {
+      console.error('Error al eliminar:', err);
+      alert(err.message || 'No se pudo eliminar el reporte.');
     }
   };
 
@@ -1066,18 +1095,27 @@ export default function ProfileModal({
                         </div>
                       )}
 
-                      {/* Acción de resolver */}
-                      {r.status === 'ACTIVE' && (
-                        <div className="flex justify-end pt-1">
+                      {/* Acciones de gestión y resolución */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-theme/60 mt-1 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteUserReport(r.id, r.petName || r.title)}
+                          className="bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white border border-red-500/30 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-xs"
+                          title="Eliminar este reporte permanentemente"
+                        >
+                          <span>🗑️</span> Eliminar reporte
+                        </button>
+
+                        {r.status === 'ACTIVE' && (
                           <button
                             type="button"
                             onClick={() => handleOpenResolveDialog(r)}
-                            className="bg-esperanza/10 hover:bg-esperanza text-esperanza hover:text-white border border-esperanza/30 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-xs"
+                            className="bg-esperanza/10 hover:bg-esperanza text-esperanza hover:text-white border border-esperanza/30 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-xs ml-auto"
                           >
                             <span>🎉</span> ¿Ya volvió a casa? Marcar como Encontrado & Puntos
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -1096,7 +1134,7 @@ export default function ProfileModal({
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="font-bold text-xs text-theme-main">¿Eres el Administrador?</h4>
-                      <p className="text-[10px] text-theme-muted">Ingresa tu PIN de seguridad (230408) para habilitar tu panel.</p>
+                      <p className="text-[10px] text-theme-muted">Ingresa tu PIN de seguridad confidencial para habilitar tu panel.</p>
                     </div>
                     <button
                       type="button"
@@ -1117,7 +1155,7 @@ export default function ProfileModal({
                         maxLength={6}
                         value={adminPin}
                         onChange={(e) => setAdminPin(e.target.value)}
-                        placeholder="Código (ej. 230408)"
+                        placeholder="Código PIN"
                         className="flex-1 bg-theme-surface border border-theme rounded-xl px-3 py-2 text-xs font-mono font-bold text-center text-theme-main outline-none focus:border-paliacate"
                       />
                       <button
@@ -1403,7 +1441,7 @@ export default function ProfileModal({
 
         {/* Botón de Cerrar Sesión */}
         <div className="mt-6 pt-4 border-t border-theme flex justify-between items-center">
-          <span className="text-[11px] text-theme-muted">Perritos Perdidos SLP v1.1</span>
+          <span className="text-[11px] text-theme-muted">Perritos o Animales Perdidos v1.1</span>
           <button
             onClick={() => signOut({ callbackUrl: window.location.href })}
             className="text-red-500 hover:bg-red-500/10 text-xs font-bold px-4 py-2 rounded-xl transition border border-red-500/30"

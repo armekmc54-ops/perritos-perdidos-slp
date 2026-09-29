@@ -69,7 +69,10 @@ export class ReportsController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.reportsService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @Query('requesterEmail') requesterEmail?: string,
+  ) {
+    return this.reportsService.remove(id, requesterEmail);
   }
 }

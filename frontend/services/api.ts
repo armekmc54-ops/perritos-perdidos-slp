@@ -224,14 +224,16 @@ export const updateReport = async (
   return response.json();
 };
 
-// Función para eliminar un reporte
-export const deleteReport = async (id: string): Promise<{ success: boolean }> => {
-  const response = await customFetch(`${getBaseUrl()}/reports/${id}`, {
+// Función para eliminar un reporte (disponible para el dueño legítimo o un Administrador)
+export const deleteReport = async (id: string, requesterEmail?: string): Promise<{ success: boolean }> => {
+  const url = `${getBaseUrl()}/reports/${id}${requesterEmail ? `?requesterEmail=${encodeURIComponent(requesterEmail)}` : ''}`;
+  const response = await customFetch(url, {
     method: 'DELETE',
   });
 
   if (!response.ok) {
-    throw new Error('Error al eliminar el reporte');
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'No se pudo eliminar el reporte');
   }
   return response.json();
 };

@@ -405,8 +405,41 @@ export class ReportsService {
     });
   }
 
-  // Eliminar un reporte
-  async remove(id: string) {
-    return this.prisma.report.delete({ where: { id } });
+  // Eliminar un reporte con comprobación de permisos (dueño o admin) y eliminación en cascada atómica
+  async remove(id: string, requesterEmail?: string) {
+    const report = await this.prisma.report.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!report) {
+      throw new NotFoundException(`Reporte con ID ${id} no encontrado`);
+    }
+
+    if (requesterEmail) {
+      const requester = await this.prisma.user.findUnique({
+        where: { email: requesterEmail.toLowerCase().trim() },
+      });
+
+      if (!requester) {
+        throw new UnauthorizedException('Usuario no registrado.');
+      }
+
+      const isOwner = report.userId === requester.id || report.user?.email.toLowerCase() === requester.email.toLowerCase();
+      const isAdmin = requester.role === Role.ADMIN;
+
+      if (!isOwner && !isAdmin) {
+        throw new ForbiddenException('No tienes permisos para eliminar este reporte.');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Eliminar mensajes asociados al reporte
+      await tx.message.deleteMany({ where: { reportId: id } });
+      // 2. Eliminar transacciones de puntos asociadas
+      await tx.pointTransaction.deleteMany({ where: { reportId: id } });
+      // 3. Eliminar el reporte
+      return tx.report.delete({ where: { id } });
+    });
   }
 }

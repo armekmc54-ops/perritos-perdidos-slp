@@ -4,13 +4,13 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Perritos Perdidos SLP",
+  title: "Perritos o Animales Perdidos",
   description:
-    "Plataforma comunitaria para reportar, rescatar y dar en adopción perritos en San Luis Potosí.",
+    "Plataforma comunitaria para reportar, rescatar y dar en adopción perritos y animales domésticos en San Luis Potosí.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Perritos SLP",
+    title: "Animales Perdidos",
   },
   icons: {
     icon: 'https://cdn-icons-png.flaticon.com/512/616/616408.png',

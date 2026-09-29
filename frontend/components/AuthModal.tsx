@@ -169,7 +169,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     {
       id: 'admin',
       name: 'Administrador General',
-      roleDescription: 'Gestión SLP (Código PIN: 230408)',
+      roleDescription: 'Gestión y Moderación General',
       email: 'admin@slp.com',
       password: 'perritos123',
       phone: '4443211123',
@@ -392,7 +392,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               <span className="text-2xl">🔐</span>
               <div>
                 <h3 className="font-bold text-xs text-theme-main">Panel de Administrador Autorizado</h3>
-                <p className="text-[10px] text-theme-muted">Ingresa el PIN de seguridad (230408) para acceder con rol ADMIN.</p>
+                <p className="text-[10px] text-theme-muted">Ingresa el PIN de seguridad confidencial para acceder con rol ADMIN.</p>
               </div>
             </div>
 
@@ -402,7 +402,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               autoFocus
               value={adminPin}
               onChange={(e) => setAdminPin(e.target.value)}
-              placeholder="Código (ej. 230408)"
+              placeholder="Código PIN"
               className="w-full bg-theme-surface border border-theme rounded-xl p-3 text-center tracking-widest text-base font-mono font-bold outline-none focus:border-paliacate text-theme-main"
             />
 
