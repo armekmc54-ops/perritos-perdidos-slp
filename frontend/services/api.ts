@@ -157,7 +157,7 @@ export const getReports = async (filters?: { type?: string; status?: string }): 
   const url = `${getBaseUrl()}/reports${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   const response = await customFetch(url);
   if (!response.ok) {
-    throw new Error('Error al obtener los reportes del servidor');
+    throw new Error('No se pudieron obtener los reportes en este momento.');
   }
   return response.json();
 };
@@ -251,7 +251,7 @@ export const syncUserWithBackend = async (data: {
     body: JSON.stringify(data),
   });
   if (!response.ok) {
-    throw new Error('Error al sincronizar usuario con el backend');
+    throw new Error('Error al sincronizar información del usuario.');
   }
   return response.json();
 };

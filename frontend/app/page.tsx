@@ -48,20 +48,26 @@ function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
   return R * c;
 }
 
-// Formateador de tiempo relativo en español
+// Formateador de tiempo relativo en español con protección contra fechas inválidas
 function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+  if (!dateString) return 'Reciente';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Reciente';
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
 
-  if (diffInMinutes < 1) return 'Hace un momento';
-  if (diffInMinutes < 60) return `Hace ${diffInMinutes} min`;
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `Hace ${diffInHours} ${diffInHours === 1 ? 'hora' : 'horas'}`;
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays === 1) return 'Ayer';
-  if (diffInDays < 30) return `Hace ${diffInDays} días`;
-  return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+    if (diffInMinutes < 1) return 'Hace un momento';
+    if (diffInMinutes < 60) return `Hace ${diffInMinutes} min`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `Hace ${diffInHours} ${diffInHours === 1 ? 'hora' : 'horas'}`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays === 1) return 'Ayer';
+    if (diffInDays < 30) return `Hace ${diffInDays} días`;
+    return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+  } catch (e) {
+    return 'Reciente';
+  }
 }
 
 export default function Home() {
@@ -128,16 +134,24 @@ export default function Home() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('arena');
 
-  // Inicializar tema visual desde localStorage
+  // Inicializar tema visual desde localStorage con salvaguarda para Safari
   useEffect(() => {
-    const savedTheme = localStorage.getItem('pps-theme') || 'arena';
-    setCurrentTheme(savedTheme);
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    try {
+      const savedTheme = localStorage.getItem('pps-theme') || 'arena';
+      setCurrentTheme(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    } catch (e) {
+      console.warn('Almacenamiento local restringido:', e);
+    }
   }, []);
 
   const handleThemeChange = (newTheme: string) => {
     setCurrentTheme(newTheme);
-    localStorage.setItem('pps-theme', newTheme);
+    try {
+      localStorage.setItem('pps-theme', newTheme);
+    } catch (e) {
+      console.warn('No se pudo guardar preferencia:', e);
+    }
     document.documentElement.setAttribute('data-theme', newTheme);
   };
 
@@ -425,7 +439,7 @@ export default function Home() {
     const isOwner = report.user?.email?.toLowerCase() === session.user.email?.toLowerCase();
     if (!isOwner) {
       alert(
-        '🚫 Permiso denegado (403 Forbidden): Únicamente el dueño legítimo del reporte o un Administrador tienen permiso para cerrar este caso y validar los puntos de recompensa comunitaria.'
+        'Únicamente el dueño que publicó este reporte o un administrador pueden marcarlo como resuelto y validar los puntos de rescate.'
       );
       return;
     }
@@ -447,6 +461,9 @@ export default function Home() {
       setSelectedReportId(report.id);
       setMapCenter([report.latitude, report.longitude]);
       setMapZoom(16);
+      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        setMobileTab('map');
+      }
     }
   };
 
@@ -523,24 +540,24 @@ export default function Home() {
     <main className="min-h-screen flex flex-col bg-theme-page font-sans text-theme-main relative">
       {/* Header Dinámico con soporte de Temas */}
       <header
-        className="sticky top-0 z-30 px-4 md:px-6 py-3.5 flex items-center justify-between shadow-md transition-all duration-300"
+        className="sticky top-0 z-30 px-3 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between shadow-md transition-all duration-300"
         style={{ background: 'var(--header-bg)', color: 'var(--header-text)' }}
       >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-2xl shadow-inner">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/10 flex items-center justify-center text-xl sm:text-2xl shadow-inner shrink-0">
             🐶
           </div>
-          <div>
-            <h1 className="font-bold text-lg md:text-xl tracking-wide leading-tight">
+          <div className="min-w-0">
+            <h1 className="font-bold text-base sm:text-xl tracking-wide leading-tight truncate">
               Perritos Perdidos SLP
             </h1>
-            <p className="text-[11px] text-white/80 hidden sm:block">
+            <p className="text-[11px] text-white/80 hidden sm:block truncate">
               Red comunitaria de rescate y adopción en San Luis Potosí
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Botón de Notificaciones a Primera Mano (Mensajes y Alertas IA) */}
           <button
             onClick={() => {
@@ -551,12 +568,12 @@ export default function Home() {
                 setIsAuthModalOpen(true);
               }
             }}
-            className="relative text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-full transition text-lg"
+            className="relative text-white/90 hover:text-white hover:bg-white/10 p-1.5 sm:p-2 rounded-full transition text-base sm:text-lg"
             title="Ver notificaciones y mensajes comunitarios"
           >
             <span>🔔</span>
             {unreadNotificationsCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 bg-paliacate text-white text-[10px] font-extrabold w-4.5 h-4.5 rounded-full flex items-center justify-center animate-bounce shadow-md border-2 border-white/60">
+              <span className="absolute -top-0.5 -right-0.5 bg-paliacate text-white text-[9px] sm:text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center animate-bounce shadow-md border-2 border-white/60">
                 {unreadNotificationsCount}
               </span>
             )}
@@ -574,15 +591,16 @@ export default function Home() {
                 handleThemeChange(next);
               }
             }}
-            className="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-full transition text-lg"
+            className="text-white/90 hover:text-white hover:bg-white/10 p-1.5 sm:p-2 rounded-full transition text-base sm:text-lg"
             title="Personalizar paleta de colores"
           >
             🎨
           </button>
 
+          {/* Botón de recarga oculto en móviles para ahorrar espacio */}
           <button
             onClick={loadReports}
-            className="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-full transition"
+            className="hidden sm:flex text-white/90 hover:text-white hover:bg-white/10 p-2 rounded-full transition"
             title="Recargar reportes"
           >
             🔄
@@ -595,25 +613,25 @@ export default function Home() {
                 setProfileModalTab('reports');
                 setIsProfileModalOpen(true);
               }}
-              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-full transition border border-white/20 text-xs md:text-sm font-semibold"
+              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white px-2 sm:px-3 py-1.5 rounded-full transition border border-white/20 text-xs sm:text-sm font-semibold"
               title="Ver mis reportes e historial"
             >
               {session.user.image ? (
                 <img
                   src={session.user.image}
                   alt={session.user.name || 'Usuario'}
-                  className="w-6 h-6 rounded-full object-cover"
+                  className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover"
                 />
               ) : (
-                <span className="w-6 h-6 rounded-full bg-paliacate text-white flex items-center justify-center text-[11px] font-bold">
+                <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-paliacate text-white flex items-center justify-center text-[10px] sm:text-[11px] font-bold">
                   {(session.user.name || 'U')[0].toUpperCase()}
                 </span>
               )}
-              <span className="hidden sm:inline font-bold max-w-[100px] truncate">
+              <span className="hidden sm:inline font-bold max-w-[90px] truncate">
                 {session.user.name?.split(' ')[0] || 'Mi Perfil'}
               </span>
               {(session.user as any).role === 'ADMIN' && (
-                <span className="text-[10px] bg-amber-400 text-carbon font-extrabold px-1.5 py-0.5 rounded-full">
+                <span className="text-[9px] sm:text-[10px] bg-amber-400 text-carbon font-extrabold px-1.5 py-0.5 rounded-full">
                   Admin
                 </span>
               )}
@@ -621,39 +639,47 @@ export default function Home() {
           ) : (
             <button
               onClick={() => setIsAuthModalOpen(true)}
-              className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-full transition border border-white/20 text-xs md:text-sm font-semibold flex items-center gap-1.5"
+              className="bg-white/10 hover:bg-white/20 text-white px-2.5 sm:px-3 py-1.5 rounded-full transition border border-white/20 text-xs sm:text-sm font-semibold flex items-center gap-1"
             >
-              <span>👤</span> Iniciar Sesión
+              <span>👤</span> <span className="hidden sm:inline">Iniciar Sesión</span>
             </button>
           )}
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="bg-paliacate hover:opacity-90 active:scale-95 transition text-white font-bold px-3.5 md:px-5 py-2 rounded-full shadow-lg flex items-center gap-1.5 text-xs md:text-sm"
+            className="bg-paliacate hover:opacity-90 active:scale-95 transition text-white font-bold px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-lg flex items-center gap-1 text-xs sm:text-sm shrink-0"
           >
-            <span className="text-base leading-none">+</span> Reportar
+            <span className="text-sm sm:text-base leading-none font-extrabold">+</span>
+            <span>Reportar</span>
           </button>
         </div>
       </header>
 
       {/* Selector de Pestaña para Móviles (Android / iOS) */}
-      <div className="lg:hidden flex bg-theme-surface border-b border-theme sticky top-[65px] z-20 shadow-sm">
+      <div className="lg:hidden flex bg-theme-surface border-b border-theme sticky top-[53px] sm:top-[65px] z-20 shadow-sm">
         <button
           onClick={() => setMobileTab('list')}
-          className={`flex-1 py-2.5 text-center text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition ${
+          className={`flex-1 py-2.5 text-center text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 border-b-2 transition ${
             mobileTab === 'list'
               ? 'border-paliacate text-paliacate bg-paliacate/10'
-              : 'border-transparent text-theme-muted'
+              : 'border-transparent text-theme-muted hover:text-theme-main'
           }`}
         >
           <span>📋</span> Ver Reportes ({filteredReports.length})
         </button>
         <button
-          onClick={() => setMobileTab('map')}
-          className={`flex-1 py-2.5 text-center text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition ${
+          onClick={() => {
+            setMobileTab('map');
+            setTimeout(() => {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new Event('resize'));
+              }
+            }, 60);
+          }}
+          className={`flex-1 py-2.5 text-center text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 border-b-2 transition ${
             mobileTab === 'map'
               ? 'border-paliacate text-paliacate bg-paliacate/10'
-              : 'border-transparent text-theme-muted'
+              : 'border-transparent text-theme-muted hover:text-theme-main'
           }`}
         >
           <span>🗺️</span> Ver Mapa
@@ -798,6 +824,7 @@ export default function Home() {
               setIsPickingOnMap(false);
               setIsModalOpen(true);
             }}
+            activeTab={mobileTab}
           />
         </div>
 
@@ -952,7 +979,7 @@ export default function Home() {
 
                       {report.status === 'ACTIVE' && report.reward && report.reward > 0 && (
                         <span className="bg-amber-400 text-gray-900 text-xs font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 border border-amber-300">
-                          💰 ${report.reward.toLocaleString('es-MX')} MXN
+                          💰 ${Number(report.reward).toLocaleString('es-MX')} MXN
                         </span>
                       )}
                     </div>
@@ -984,7 +1011,7 @@ export default function Home() {
                             <span>💰</span> Recompensa ofrecida:
                           </span>
                           <span className="text-xs font-extrabold text-amber-600 dark:text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-lg">
-                            ${report.reward.toLocaleString('es-MX')} MXN
+                            ${Number(report.reward).toLocaleString('es-MX')} MXN
                           </span>
                         </div>
                       )}
@@ -1437,7 +1464,7 @@ export default function Home() {
                 disabled={isSubmitting}
                 className="w-full bg-paliacate hover:opacity-95 text-white font-bold py-3.5 rounded-2xl mt-2 transition disabled:opacity-50 shadow-lg text-base active:scale-[0.98]"
               >
-                {isSubmitting ? 'Guardando en la base de datos...' : 'Publicar Reporte'}
+                {isSubmitting ? 'Publicando reporte...' : 'Publicar Reporte'}
               </button>
             </form>
           </div>

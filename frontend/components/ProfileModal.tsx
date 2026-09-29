@@ -31,20 +31,26 @@ interface ProfileModalProps {
   initialTab?: 'notifications' | 'reports' | 'settings';
 }
 
-// Formateador de tiempo relativo en español
+// Formateador de tiempo relativo en español con protección contra fechas inválidas
 function formatRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+  if (!dateString) return 'Reciente';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Reciente';
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
 
-  if (diffInMinutes < 1) return 'Hace un momento';
-  if (diffInMinutes < 60) return `Hace ${diffInMinutes} min`;
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `Hace ${diffInHours} ${diffInHours === 1 ? 'hora' : 'horas'}`;
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays === 1) return 'Ayer';
-  if (diffInDays < 30) return `Hace ${diffInDays} días`;
-  return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+    if (diffInMinutes < 1) return 'Hace un momento';
+    if (diffInMinutes < 60) return `Hace ${diffInMinutes} min`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `Hace ${diffInHours} ${diffInHours === 1 ? 'hora' : 'horas'}`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays === 1) return 'Ayer';
+    if (diffInDays < 30) return `Hace ${diffInDays} días`;
+    return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+  } catch (e) {
+    return 'Reciente';
+  }
 }
 
 export default function ProfileModal({
@@ -207,12 +213,17 @@ export default function ProfileModal({
 
         const uploadDate = new Date(sighting.createdAt);
         const uploadedTimeAgo = formatRelativeTime(sighting.createdAt);
-        const exactTime = uploadDate.toLocaleDateString('es-MX', {
-          day: 'numeric',
-          month: 'short',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
+        let exactTime = 'Reciente';
+        try {
+          if (!isNaN(uploadDate.getTime())) {
+            exactTime = uploadDate.toLocaleDateString('es-MX', {
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+          }
+        } catch (e) {}
 
         const hasColorMatch = Boolean(
           pet.primaryColor &&
@@ -585,7 +596,7 @@ export default function ProfileModal({
 
                 {loadingMessages && messages.length === 0 ? (
                   <div className="text-center py-10 text-theme-muted text-xs">
-                    Cargando mensajes desde el servidor...
+                    Cargando mensajes de la comunidad...
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="text-center py-10 bg-theme-input rounded-2xl border border-theme p-6">
@@ -637,7 +648,16 @@ export default function ProfileModal({
                                       Reporte: <strong className="text-paliacate">"{m.report.petName || m.report.title}"</strong> •{' '}
                                     </>
                                   ) : null}
-                                  {formatRelativeTime(m.createdAt)} ({new Date(m.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })})
+                                  {formatRelativeTime(m.createdAt)} ({(() => {
+                                    try {
+                                      const d = new Date(m.createdAt);
+                                      return !isNaN(d.getTime())
+                                        ? d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                                        : '';
+                                    } catch (e) {
+                                      return '';
+                                    }
+                                  })()})
                                 </span>
                               </div>
                             </div>
@@ -933,7 +953,7 @@ export default function ProfileModal({
                             <span className="text-xs font-bold text-theme-main">Recompensa:</span>
                             {r.reward && r.reward > 0 ? (
                               <span className="text-xs font-extrabold text-amber-600 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
-                                ${r.reward.toLocaleString('es-MX')} MXN
+                                ${Number(r.reward).toLocaleString('es-MX')} MXN
                               </span>
                             ) : (
                               <span className="text-xs text-theme-muted">Sin recompensa asignada</span>

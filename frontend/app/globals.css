@@ -66,11 +66,24 @@ body {
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Quitar bordes y fondos blancos cuadrados por defecto de Leaflet divIcon */
+/* Quitar bordes, contornos negros y sombras por defecto de Leaflet divIcon y marcadores */
 .leaflet-div-icon,
-.custom-leaflet-marker {
+.custom-leaflet-marker,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
   background: transparent !important;
   border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.leaflet-marker-icon:focus,
+.custom-leaflet-marker:focus,
+.leaflet-div-icon:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* Clases de tema dinámico para superficies, inputs y textos */

@@ -121,29 +121,55 @@ function MapRecenter({ center, zoom }: { center: [number, number]; zoom: number 
   return null;
 }
 
-// Invalida tamaño para asegurar carga fluida de teselas completas en el contenedor
-function MapResizer() {
+// Invalida tamaño para asegurar carga fluida de teselas completas en el contenedor, especialmente al alternar pestañas en móvil
+function MapResizer({ activeTab }: { activeTab?: string }) {
   const map = useMap();
   useEffect(() => {
-    map.invalidateSize();
-    const t1 = setTimeout(() => map.invalidateSize(), 100);
-    const t2 = setTimeout(() => map.invalidateSize(), 300);
-    const t3 = setTimeout(() => map.invalidateSize(), 600);
-    const t4 = setTimeout(() => map.invalidateSize(), 1200);
+    const invalidate = () => {
+      try {
+        if (map) {
+          map.invalidateSize();
+        }
+      } catch (e) {}
+    };
+
+    invalidate();
+    const t1 = setTimeout(invalidate, 50);
+    const t2 = setTimeout(invalidate, 150);
+    const t3 = setTimeout(invalidate, 300);
+    const t4 = setTimeout(invalidate, 600);
+    const t5 = setTimeout(invalidate, 1200);
+
+    let observer: ResizeObserver | null = null;
+    try {
+      const container = map.getContainer();
+      if (container && typeof ResizeObserver !== 'undefined') {
+        observer = new ResizeObserver(() => {
+          invalidate();
+        });
+        observer.observe(container);
+      }
+    } catch (e) {}
 
     const handleResize = () => {
-      map.invalidateSize();
+      invalidate();
     };
     window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
       clearTimeout(t4);
+      clearTimeout(t5);
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      if (observer) {
+        observer.disconnect();
+      }
     };
-  }, [map]);
+  }, [map, activeTab]);
   return null;
 }
 
@@ -164,6 +190,7 @@ interface MapProps {
     details?: TriangulationData | null;
   } | null;
   onExitTriangulation?: () => void;
+  activeTab?: string;
 }
 
 export default function Map({
@@ -179,6 +206,7 @@ export default function Map({
   onOpenMessageModal,
   triangulationData,
   onExitTriangulation,
+  activeTab,
 }: MapProps) {
   const selectedReport = reports.find((r) => r.id === selectedReportId);
 
@@ -270,7 +298,7 @@ export default function Map({
         />
 
         <MapRecenter center={centerCoords} zoom={zoom} />
-        <MapResizer />
+        <MapResizer activeTab={activeTab} />
 
         {/* Trazado y Radio Dinámico de Triangulación por Especie */}
         {triangulationData && (
