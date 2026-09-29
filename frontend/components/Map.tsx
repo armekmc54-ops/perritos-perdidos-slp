@@ -250,61 +250,100 @@ function MapPopupMedia({
 }) {
   const images = getReportImages(mediaUrl);
   const [index, setIndex] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
+  const hasDragged = useRef(false);
 
   if (!images.length) return null;
-
-  const currentImg = images[index] || images[0];
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
+    hasDragged.current = false;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || images.length <= 1) return;
+    const diffX = e.touches[0].clientX - touchStartX.current;
+    const diffY = e.touches[0].clientY - (touchStartY.current || 0);
+
+    if (Math.abs(diffX) > 8 && Math.abs(diffX) > Math.abs(diffY)) {
+      hasDragged.current = true;
+      const atStart = index === 0 && diffX > 0;
+      const atEnd = index === images.length - 1 && diffX < 0;
+      setDragOffset(atStart || atEnd ? diffX * 0.35 : diffX);
+    }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null || images.length <= 1) return;
+    setIsDragging(false);
+    if (touchStartX.current === null || images.length <= 1) {
+      setDragOffset(0);
+      touchStartX.current = null;
+      touchStartY.current = null;
+      return;
+    }
     const diffX = e.changedTouches[0].clientX - touchStartX.current;
-    const diffY = e.changedTouches[0].clientY - touchStartY.current;
+    const diffY = e.changedTouches[0].clientY - (touchStartY.current || 0);
 
-    // Solo considerar swipe si el movimiento horizontal supera al vertical y es de más de 35px
     if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
       if (diffX < 0) {
-        // Deslizar a la izquierda -> siguiente foto
+        // Deslizar izquierda -> siguiente foto
         setIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
       } else {
-        // Deslizar a la derecha -> foto anterior
+        // Deslizar derecha -> foto anterior
         setIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
       }
     }
+    setDragOffset(0);
     touchStartX.current = null;
     touchStartY.current = null;
+    setTimeout(() => {
+      hasDragged.current = false;
+    }, 60);
   };
 
   return (
     <div
       className="relative w-full h-20 sm:h-24 bg-zinc-950 rounded-xl overflow-hidden mb-1 flex items-center justify-center shadow-xs select-none cursor-pointer group"
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onClick={(e) => {
         L.DomEvent.stopPropagation(e as any);
-        if (onOpenLightbox) {
+        if (!hasDragged.current && onOpenLightbox) {
           onOpenLightbox(images, index);
         }
       }}
       title="Toca para ver la foto en pantalla completa"
     >
-      <img
-        src={currentImg}
-        alt=""
-        aria-hidden="true"
-        className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110 pointer-events-none select-none"
-      />
-      <img
-        src={currentImg}
-        alt={title}
-        className="relative z-10 max-h-full max-w-full object-contain pointer-events-none"
-      />
+      {/* Carrusel deslizable animado */}
+      <div
+        className="flex h-full w-full will-change-transform"
+        style={{
+          transform: `translateX(calc(-${index * 100}% + ${dragOffset}px))`,
+          transition: isDragging ? 'none' : 'transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1)',
+        }}
+      >
+        {images.map((img, idx) => (
+          <div key={idx} className="relative w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
+            <img
+              src={img}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-110 pointer-events-none select-none"
+            />
+            <img
+              src={img}
+              alt={title}
+              className="relative z-10 max-h-full max-w-full object-contain pointer-events-none select-none"
+            />
+          </div>
+        ))}
+      </div>
 
       {/* Indicador de lupa para abrir foto completa */}
       <div className="absolute top-1 right-1 z-20 bg-black/60 group-hover:bg-black text-white p-0.5 rounded-full text-[9px] shadow-sm pointer-events-none">

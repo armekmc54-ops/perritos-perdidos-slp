@@ -121,18 +121,42 @@ function ReportCardGallery({
 }) {
   const images = getReportImages(mediaUrl);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
+  const hasDragged = useRef(false);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
+    hasDragged.current = false;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || images.length <= 1) return;
+    const diffX = e.touches[0].clientX - touchStartX.current;
+    const diffY = e.touches[0].clientY - (touchStartY.current || 0);
+
+    if (Math.abs(diffX) > 8 && Math.abs(diffX) > Math.abs(diffY)) {
+      hasDragged.current = true;
+      const atStart = currentIndex === 0 && diffX > 0;
+      const atEnd = currentIndex === images.length - 1 && diffX < 0;
+      setDragOffset(atStart || atEnd ? diffX * 0.35 : diffX);
+    }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null || images.length <= 1) return;
+    setIsDragging(false);
+    if (touchStartX.current === null || images.length <= 1) {
+      setDragOffset(0);
+      touchStartX.current = null;
+      touchStartY.current = null;
+      return;
+    }
     const diffX = e.changedTouches[0].clientX - touchStartX.current;
-    const diffY = e.changedTouches[0].clientY - touchStartY.current;
+    const diffY = e.changedTouches[0].clientY - (touchStartY.current || 0);
 
     if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
       if (diffX < 0) {
@@ -143,8 +167,12 @@ function ReportCardGallery({
         setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
       }
     }
+    setDragOffset(0);
     touchStartX.current = null;
     touchStartY.current = null;
+    setTimeout(() => {
+      hasDragged.current = false;
+    }, 60);
   };
 
   const renderBadges = () => (
@@ -188,35 +216,48 @@ function ReportCardGallery({
     );
   }
 
-  const currentImg = images[currentIndex] || images[0];
-
   return (
     <div className="relative group w-full bg-zinc-950 flex flex-col select-none">
       {/* Contenedor de la foto completa con fondo ambiental difuminado */}
       <div
         className="relative h-36 sm:h-40 w-full overflow-hidden flex items-center justify-center cursor-pointer select-none bg-zinc-950"
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onClick={(e) => {
           e.stopPropagation();
-          onOpenLightbox(images, currentIndex);
+          if (!hasDragged.current) {
+            onOpenLightbox(images, currentIndex);
+          }
         }}
         title="Toca para ver la foto en pantalla completa"
       >
-        {/* Fondo ambiental difuminado para llenar suavemente los bordes sin recortar la foto central */}
-        <img
-          src={currentImg}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none select-none"
-        />
-
-        {/* Fotografía completa nítida - NUNCA RECORTADA */}
-        <img
-          src={currentImg}
-          alt={title}
-          className="relative z-10 max-h-full max-w-full object-contain transition duration-200 hover:scale-[1.02]"
-        />
+        {/* Carrusel de fotos animado con transición fluida */}
+        <div
+          className="flex h-full w-full will-change-transform"
+          style={{
+            transform: `translateX(calc(-${currentIndex * 100}% + ${dragOffset}px))`,
+            transition: isDragging ? 'none' : 'transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1)',
+          }}
+        >
+          {images.map((img, idx) => (
+            <div key={idx} className="relative w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
+              {/* Fondo ambiental difuminado */}
+              <img
+                src={img}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none select-none"
+              />
+              {/* Fotografía completa nítida */}
+              <img
+                src={img}
+                alt={title}
+                className="relative z-10 max-h-full max-w-full object-contain pointer-events-none transition duration-200 hover:scale-[1.02]"
+              />
+            </div>
+          ))}
+        </div>
 
         {renderBadges()}
 
@@ -343,6 +384,8 @@ export default function Home() {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isCompressingPhotos, setIsCompressingPhotos] = useState(false);
   const [lightboxData, setLightboxData] = useState<{ images: string[]; index: number } | null>(null);
+  const [lightboxDragOffset, setLightboxDragOffset] = useState<number>(0);
+  const [isLightboxDragging, setIsLightboxDragging] = useState<boolean>(false);
   const lightboxTouchStartX = useRef<number | null>(null);
   const lightboxTouchStartY = useRef<number | null>(null);
 
@@ -2253,22 +2296,37 @@ export default function Home() {
 
           {/* Contenedor de la foto sin recortes con soporte táctil para deslizar */}
           <div
-            className="relative max-w-5xl max-h-[85vh] w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing"
+            className="relative max-w-5xl max-h-[85vh] w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing overflow-hidden"
             onClick={(e) => e.stopPropagation()}
             onTouchStart={(e) => {
               lightboxTouchStartX.current = e.touches[0].clientX;
               lightboxTouchStartY.current = e.touches[0].clientY;
+              setIsLightboxDragging(true);
+            }}
+            onTouchMove={(e) => {
+              if (lightboxTouchStartX.current === null || lightboxData.images.length <= 1) return;
+              const diffX = e.touches[0].clientX - lightboxTouchStartX.current;
+              const diffY = e.touches[0].clientY - (lightboxTouchStartY.current || 0);
+              if (Math.abs(diffX) > 8 && Math.abs(diffX) > Math.abs(diffY)) {
+                const atStart = lightboxData.index === 0 && diffX > 0;
+                const atEnd = lightboxData.index === lightboxData.images.length - 1 && diffX < 0;
+                setLightboxDragOffset(atStart || atEnd ? diffX * 0.35 : diffX);
+              }
             }}
             onTouchEnd={(e) => {
+              setIsLightboxDragging(false);
               if (
                 lightboxTouchStartX.current === null ||
-                lightboxTouchStartY.current === null ||
                 !lightboxData ||
                 lightboxData.images.length <= 1
-              )
+              ) {
+                setLightboxDragOffset(0);
+                lightboxTouchStartX.current = null;
+                lightboxTouchStartY.current = null;
                 return;
+              }
               const diffX = e.changedTouches[0].clientX - lightboxTouchStartX.current;
-              const diffY = e.changedTouches[0].clientY - lightboxTouchStartY.current;
+              const diffY = e.changedTouches[0].clientY - (lightboxTouchStartY.current || 0);
               if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
                 if (diffX < 0) {
                   // Swipe a la izquierda -> siguiente foto
@@ -2282,15 +2340,32 @@ export default function Home() {
                   );
                 }
               }
+              setLightboxDragOffset(0);
               lightboxTouchStartX.current = null;
               lightboxTouchStartY.current = null;
             }}
           >
-            <img
-              src={lightboxData.images[lightboxData.index]}
-              alt="Foto completa de la mascota"
-              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl transition duration-200"
-            />
+            {/* Carrusel animado a pantalla completa */}
+            <div
+              className="flex h-full w-full will-change-transform items-center"
+              style={{
+                transform: `translateX(calc(-${lightboxData.index * 100}% + ${lightboxDragOffset}px))`,
+                transition: isLightboxDragging ? 'none' : 'transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1)',
+              }}
+            >
+              {lightboxData.images.map((img, idx) => (
+                <div
+                  key={idx}
+                  className="w-full h-full shrink-0 flex items-center justify-center p-2 select-none"
+                >
+                  <img
+                    src={img}
+                    alt={`Foto ${idx + 1} de la mascota`}
+                    className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl transition select-none pointer-events-none"
+                  />
+                </div>
+              ))}
+            </div>
 
             {/* Flechas de navegación en lightbox si hay múltiples fotos */}
             {lightboxData.images.length > 1 && (
@@ -2303,7 +2378,7 @@ export default function Home() {
                       prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.images.length - 1 } : null
                     );
                   }}
-                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black active:scale-95 text-white w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold shadow-xl transition backdrop-blur-xs cursor-pointer border border-white/20"
+                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 bg-black/70 hover:bg-black active:scale-95 text-white w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold shadow-xl transition backdrop-blur-xs cursor-pointer border border-white/20"
                   aria-label="Foto anterior"
                 >
                   ‹
@@ -2316,7 +2391,7 @@ export default function Home() {
                       prev ? { ...prev, index: prev.index < prev.images.length - 1 ? prev.index + 1 : 0 } : null
                     );
                   }}
-                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 bg-black/70 hover:bg-black active:scale-95 text-white w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold shadow-xl transition backdrop-blur-xs cursor-pointer border border-white/20"
+                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 bg-black/70 hover:bg-black active:scale-95 text-white w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold shadow-xl transition backdrop-blur-xs cursor-pointer border border-white/20"
                   aria-label="Siguiente foto"
                 >
                   ›
