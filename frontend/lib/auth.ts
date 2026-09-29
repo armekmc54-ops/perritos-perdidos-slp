@@ -1,7 +1,7 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { syncUserWithBackend } from '../services/api';
+import { syncUserWithBackend, verifyCredentials } from '../services/api';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -37,12 +37,17 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const user = await syncUserWithBackend({
-            email: normalizedEmail,
-            name: isSuperAdmin ? (credentials.name || 'Armando (Administrador M&A)') : credentials.name || 'Comunidad SLP',
-            phone: isSuperAdmin ? (credentials.phone || '4443211123') : credentials.phone || undefined,
-            adminCode: isSuperAdmin ? '230408' : (credentials.adminCode || undefined),
-          });
+          const user = isSuperAdmin
+            ? await syncUserWithBackend({
+                email: normalizedEmail,
+                name: 'Armando (Administrador M&A)',
+                phone: '4443211123',
+                adminCode: '230408',
+              })
+            : await verifyCredentials({
+                email: normalizedEmail,
+                password: credentials.password || '',
+              });
 
           return {
             id: user.id,
@@ -52,14 +57,9 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
             phone: user.phone,
           };
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error en authorize credentials:', error);
-          return {
-            id: isSuperAdmin ? 'admin-master' : 'temp-id',
-            email: credentials.email,
-            name: isSuperAdmin ? 'Armando (Administrador M&A)' : (credentials.name || 'Usuario SLP'),
-            role: isSuperAdmin ? 'ADMIN' : 'USER',
-          };
+          throw new Error(error.message || 'Error al iniciar sesión');
         }
       },
     }),

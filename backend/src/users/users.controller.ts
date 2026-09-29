@@ -1,5 +1,12 @@
 import { Controller, Get, Post, Patch, Body, Query } from '@nestjs/common';
-import { UsersService, SyncUserDto, UpdateProfileDto } from './users.service';
+import {
+  UsersService,
+  SyncUserDto,
+  UpdateProfileDto,
+  RegisterUserDto,
+  VerifyCredentialsDto,
+  ResetPasswordDto,
+} from './users.service';
 
 @Controller('users')
 export class UsersController {
@@ -8,6 +15,21 @@ export class UsersController {
   @Post('sync')
   syncUser(@Body() data: SyncUserDto) {
     return this.usersService.syncUser(data);
+  }
+
+  @Post('register')
+  register(@Body() data: RegisterUserDto) {
+    return this.usersService.register(data);
+  }
+
+  @Post('verify')
+  verify(@Body() data: VerifyCredentialsDto) {
+    return this.usersService.verifyCredentials(data);
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body() data: ResetPasswordDto) {
+    return this.usersService.resetPassword(data);
   }
 
   @Get('profile')

@@ -258,6 +258,60 @@ export const syncUserWithBackend = async (data: {
   return response.json();
 };
 
+// Registrar nuevo usuario con validación estricta de duplicados
+export const registerUser = async (data: {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+}): Promise<UserProfile> => {
+  const response = await customFetch(`${getBaseUrl()}/users/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Error al registrar el usuario.');
+  }
+  return response.json();
+};
+
+// Verificar credenciales de acceso en el backend
+export const verifyCredentials = async (data: {
+  email: string;
+  password: string;
+}): Promise<UserProfile> => {
+  const response = await customFetch(`${getBaseUrl()}/users/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Credenciales inválidas.');
+  }
+  return response.json();
+};
+
+// Restablecer contraseña mediante correo y teléfono registrado
+export const resetPassword = async (data: {
+  email: string;
+  phone: string;
+  newPassword: string;
+}): Promise<{ success: boolean; message: string }> => {
+  const response = await customFetch(`${getBaseUrl()}/users/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Error al restablecer la contraseña.');
+  }
+  return response.json();
+};
+
 // Obtener perfil de usuario
 export const getUserProfile = async (email: string): Promise<UserProfile> => {
   const response = await customFetch(`${getBaseUrl()}/users/profile?email=${encodeURIComponent(email)}`);
