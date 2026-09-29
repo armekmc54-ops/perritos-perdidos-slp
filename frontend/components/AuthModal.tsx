@@ -11,7 +11,7 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
-  // Pestaña principal: 'user' (Comunidad) o 'admin' (Administración)
+  // Pestaña principal: 'user' (Comunidad) o 'admin' (Administración discreta)
   const [activeTab, setActiveTab] = useState<'user' | 'admin'>('user');
 
   // Sub-vistas dentro de Usuario: 'login' | 'register' | 'forgot'
@@ -42,9 +42,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
   const [resetSuccessMsg, setResetSuccessMsg] = useState<string | null>(null);
 
-  // Campos para Administrador
-  const [adminEmail, setAdminEmail] = useState('armekmc54@gmail.com');
-  const [adminPassword, setAdminPassword] = useState('TeAmoXimena230408@');
+  // Campos para Administrador (Completamente vacíos por seguridad)
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [adminPin, setAdminPin] = useState('');
   const [adminAuthType, setAdminAuthType] = useState<'credentials' | 'pin'>('credentials');
@@ -56,7 +56,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
   if (!isOpen) return null;
 
-  // 1. INICIAR SESIÓN DE USUARIO
+  // 1. INICIAR SESIÓN DE USUARIO (O ADMINISTRADOR)
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail.trim() || !loginPassword.trim()) {
@@ -101,12 +101,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     setTermsError(false);
 
     const emailTrimmed = regEmail.trim().toLowerCase();
-
-    // Si el usuario ingresa el correo de administración
-    if (emailTrimmed === 'armekmc54@gmail.com') {
-      setErrorMsg('👑 Este correo ya pertenece a la cuenta de Administrador. Por favor ingresa en la pestaña "Administrador" de arriba.');
-      return;
-    }
 
     if (!regName.trim() || !emailTrimmed || !regPhone.trim() || !regPassword.trim() || !regConfirmPassword.trim()) {
       setErrorMsg('Por favor llena todos los campos obligatorios (*).');
@@ -153,7 +147,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       });
 
       if (res?.error) {
-        setErrorMsg('Cuenta creada correctamente. Por favor inicia sesión: ' + res.error);
+        setErrorMsg('Cuenta creada correctamente. Por favor inicia sesión con tu correo y contraseña.');
         setUserView('login');
         setLoginEmail(emailTrimmed);
       } else {
@@ -216,16 +210,11 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     }
   };
 
-  // 4. ACCESO DE ADMINISTRADOR (Credenciales o PIN)
+  // 4. ACCESO DE ADMINISTRADOR (Campos seguros y vacíos)
   const handleAdminCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminEmail.trim()) {
-      setErrorMsg('Ingresa el correo de administración.');
-      return;
-    }
-
-    if (adminPassword !== 'TeAmoXimena230408@') {
-      setErrorMsg('⚠️ Contraseña de Administrador incorrecta.');
+    if (!adminEmail.trim() || !adminPassword) {
+      setErrorMsg('Ingresa tu correo y contraseña de administración.');
       return;
     }
 
@@ -253,7 +242,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         }
       }
     } catch (err: any) {
-      setErrorMsg('Error al acceder como Admin: ' + err.message);
+      setErrorMsg('Error al acceder: ' + err.message);
     } finally {
       setIsLoading(false);
     }
@@ -261,8 +250,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
   const handleAdminPinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPin.trim() !== '230408') {
-      setErrorMsg('⚠️ Código PIN incorrecto. Acceso reservado para el administrador autorizado.');
+    if (!adminPin.trim()) {
+      setErrorMsg('Ingresa tu PIN confidencial de administrador.');
       return;
     }
 
@@ -272,7 +261,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       const res = await signIn('credentials', {
         redirect: false,
         email: 'armekmc54@gmail.com',
-        adminCode: '230408',
+        adminCode: adminPin.trim(),
         password: 'TeAmoXimena230408@',
       });
 
@@ -285,10 +274,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
           window.location.reload();
         }
       } else {
-        setErrorMsg(res.error);
+        setErrorMsg('PIN de administrador incorrecto.');
       }
     } catch (err: any) {
-      setErrorMsg(err.message);
+      setErrorMsg(err.message || 'Error al validar PIN.');
     } finally {
       setIsLoading(false);
     }
@@ -306,7 +295,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             ×
           </button>
 
-          <div className="text-center mb-3">
+          <div className="text-center mb-4">
             <div className="w-12 h-12 bg-paliacate/10 text-paliacate rounded-full flex items-center justify-center mx-auto text-2xl mb-1.5 shadow-inner">
               🐶
             </div>
@@ -317,7 +306,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
           </div>
 
           {errorMsg && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-500 text-xs p-3 rounded-xl mb-3 text-center font-medium animate-pulse">
+            <div className="bg-red-500/10 border border-red-500/30 text-red-500 text-xs p-3 rounded-xl mb-3 text-center font-medium">
               {errorMsg}
             </div>
           )}
@@ -328,39 +317,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             </div>
           )}
 
-          {/* Pestañas Principales: Comunidad vs Administrador */}
-          <div className="flex border-b border-theme mb-3 gap-2">
-            <button
-              onClick={() => {
-                setActiveTab('user');
-                setErrorMsg(null);
-                setTermsError(false);
-              }}
-              className={`flex-1 py-2 text-xs font-bold border-b-2 transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'user'
-                  ? 'border-paliacate text-paliacate'
-                  : 'border-transparent text-theme-muted hover:text-theme-main'
-              }`}
-            >
-              <span>👥</span> Comunidad
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('admin');
-                setErrorMsg(null);
-                setTermsError(false);
-              }}
-              className={`flex-1 py-2 text-xs font-bold border-b-2 transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'admin'
-                  ? 'border-paliacate text-paliacate'
-                  : 'border-transparent text-theme-muted hover:text-theme-main'
-              }`}
-            >
-              <span>👑</span> Administrador
-            </button>
-          </div>
-
-          {/* ===================== TAB 1: COMUNIDAD ===================== */}
+          {/* ===================== VISTA 1: COMUNIDAD (POR DEFECTO PARA TODOS) ===================== */}
           {activeTab === 'user' && (
             <div>
               {/* SUB-VISTA A: INICIAR SESIÓN */}
@@ -439,7 +396,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     className="w-full bg-paliacate hover:opacity-90 active:scale-95 text-white font-bold py-3 rounded-xl text-xs shadow-md transition disabled:opacity-50 mt-1 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <span>{isLoading ? '⏳' : '🐾'}</span>
-                    <span>{isLoading ? 'Comprobando datos...' : 'Ingresar a Mi Cuenta'}</span>
+                    <span>{isLoading ? 'Iniciando sesión...' : 'Ingresar a Mi Cuenta'}</span>
                   </button>
 
                   <div className="text-center pt-2 border-t border-theme/60 mt-0.5">
@@ -504,22 +461,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                       placeholder="correo@ejemplo.com"
                       className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
                     />
-                    {/* Alerta inteligente si escribe el correo del administrador */}
-                    {regEmail.toLowerCase().trim() === 'armekmc54@gmail.com' && (
-                      <div className="mt-1.5 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px] text-amber-800 dark:text-amber-300 flex flex-col gap-1">
-                        <div>👑 <strong>¡Hola Administrador!</strong> Este correo ya es la cuenta de Administración.</div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveTab('admin');
-                            setErrorMsg(null);
-                          }}
-                          className="text-left font-bold text-paliacate underline cursor-pointer"
-                        >
-                          👉 Haz clic aquí para entrar directamente en la pestaña Administrador
-                        </button>
-                      </div>
-                    )}
                   </div>
 
                   <div>
@@ -799,27 +740,57 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                   </div>
                 </form>
               )}
+
+              {/* ENLACE DISCRETO DE ADMINISTRACIÓN (NO VISIBLE COMO PESTAÑA PRINCIPAL) */}
+              <div className="text-center pt-3 mt-3 border-t border-theme/40">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('admin');
+                    setErrorMsg(null);
+                    setAdminEmail('');
+                    setAdminPassword('');
+                    setAdminPin('');
+                  }}
+                  className="text-[10px] text-theme-muted/40 hover:text-theme-muted transition cursor-pointer"
+                >
+                  Acceso de moderación y administración
+                </button>
+              </div>
             </div>
           )}
 
-          {/* ===================== TAB 2: ADMINISTRADOR ===================== */}
+          {/* ===================== VISTA 2: PANEL DISCRETO DE ADMINISTRADOR ===================== */}
           {activeTab === 'admin' && (
             <div className="flex flex-col gap-3">
-              <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-2xl flex items-center gap-2.5">
-                <span className="text-2xl shrink-0">👑</span>
-                <div>
-                  <h4 className="font-bold text-xs text-amber-700 dark:text-amber-400">Acceso Maestro de Administración</h4>
-                  <p className="text-[10px] text-theme-muted">
-                    Panel exclusivo para gestión, moderación y control total de la plataforma.
-                  </p>
+              <div className="flex items-center justify-between pb-2 border-b border-theme">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">👑</span>
+                  <div>
+                    <h4 className="font-bold text-xs text-theme-main">Acceso Administrativo</h4>
+                    <p className="text-[10px] text-theme-muted">Panel restringido para moderadores y administradores.</p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('user');
+                    setErrorMsg(null);
+                  }}
+                  className="text-xs text-theme-muted hover:text-theme-main font-semibold cursor-pointer"
+                >
+                  ← Volver
+                </button>
               </div>
 
               {/* Selector de método Admin: Credenciales vs PIN */}
               <div className="grid grid-cols-2 gap-2 text-xs font-bold">
                 <button
                   type="button"
-                  onClick={() => setAdminAuthType('credentials')}
+                  onClick={() => {
+                    setAdminAuthType('credentials');
+                    setErrorMsg(null);
+                  }}
                   className={`py-2 px-3 rounded-xl border transition cursor-pointer ${
                     adminAuthType === 'credentials'
                       ? 'bg-paliacate text-white border-paliacate'
@@ -830,7 +801,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAdminAuthType('pin')}
+                  onClick={() => {
+                    setAdminAuthType('pin');
+                    setErrorMsg(null);
+                  }}
                   className={`py-2 px-3 rounded-xl border transition cursor-pointer ${
                     adminAuthType === 'pin'
                       ? 'bg-paliacate text-white border-paliacate'
@@ -844,7 +818,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               {adminAuthType === 'credentials' ? (
                 <form onSubmit={handleAdminCredentialsSubmit} className="flex flex-col gap-2.5 mt-1">
                   <div>
-                    <label className="block text-[11px] font-bold text-theme-muted mb-1">Correo Administrador</label>
+                    <label className="block text-[11px] font-bold text-theme-muted mb-1">Correo de Administrador</label>
                     <input
                       type="email"
                       required
@@ -853,13 +827,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                       spellCheck={false}
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
-                      placeholder="armekmc54@gmail.com"
-                      className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main font-mono"
+                      placeholder="admin@ejemplo.com"
+                      className="w-full bg-theme-input border border-theme rounded-xl p-2.5 text-xs outline-none focus:border-paliacate text-theme-main"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-theme-muted mb-1">Contraseña Maestra</label>
+                    <label className="block text-[11px] font-bold text-theme-muted mb-1">Contraseña</label>
                     <div className="relative">
                       <input
                         type={showAdminPassword ? 'text' : 'password'}
@@ -869,8 +843,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                         spellCheck={false}
                         value={adminPassword}
                         onChange={(e) => setAdminPassword(e.target.value)}
-                        placeholder="Contraseña de Administrador"
-                        className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-8 text-xs outline-none focus:border-paliacate text-theme-main font-mono"
+                        placeholder="Contraseña"
+                        className="w-full bg-theme-input border border-theme rounded-xl p-2.5 pr-8 text-xs outline-none focus:border-paliacate text-theme-main"
                       />
                       <button
                         type="button"
@@ -889,12 +863,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                     className="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold py-3 rounded-xl text-xs shadow-md transition disabled:opacity-50 mt-1 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <span>{isLoading ? '⏳' : '👑'}</span>
-                    <span>{isLoading ? 'Verificando credenciales...' : 'Entrar como Administrador'}</span>
+                    <span>{isLoading ? 'Verificando...' : 'Entrar como Administrador'}</span>
                   </button>
                 </form>
               ) : (
                 <form onSubmit={handleAdminPinSubmit} className="flex flex-col gap-3 mt-1">
-                  <label className="block text-[11px] font-bold text-theme-muted">Ingresa el PIN de seguridad confidencial:</label>
+                  <label className="block text-[11px] font-bold text-theme-muted">Ingresa el PIN confidencial:</label>
                   <input
                     type="password"
                     maxLength={6}
