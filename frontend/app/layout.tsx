@@ -16,6 +16,28 @@ export const metadata: Metadata = {
     icon: 'https://cdn-icons-png.flaticon.com/512/616/616408.png',
     apple: 'https://cdn-icons-png.flaticon.com/512/616/616408.png',
   },
+  openGraph: {
+    title: "Perritos o Animales Perdidos - San Luis Potosí",
+    description: "Plataforma comunitaria para reportar, rescatar y encontrar mascotas perdidas en San Luis Potosí.",
+    url: "https://frontend-three-murex-64.vercel.app",
+    siteName: "Perritos o Animales Perdidos",
+    images: [
+      {
+        url: "https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=1200&auto=format&fit=crop&q=80",
+        width: 1200,
+        height: 630,
+        alt: "Perritos o Animales Perdidos SLP",
+      },
+    ],
+    locale: "es_MX",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Perritos o Animales Perdidos - San Luis Potosí",
+    description: "Plataforma comunitaria para reportar, rescatar y encontrar mascotas perdidas en San Luis Potosí.",
+    images: ["https://images.unsplash.com/photo-1548767797-d8c844163c4c?w=1200&auto=format&fit=crop&q=80"],
+  },
 };
 
 export const viewport: Viewport = {
