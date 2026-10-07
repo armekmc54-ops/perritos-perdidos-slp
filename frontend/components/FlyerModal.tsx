@@ -14,6 +14,7 @@ interface FlyerModalProps {
 export default function FlyerModal({ report, isOpen, onClose }: FlyerModalProps) {
   const flyerRef = useRef<HTMLDivElement>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [isPhotoReady, setIsPhotoReady] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -25,7 +26,35 @@ export default function FlyerModal({ report, isOpen, onClose }: FlyerModalProps)
         : `https://perritos-perdidos-slp.vercel.app/reporte/${reportId}`)
     : '';
 
-  // Generar código QR de alta resolución (200x200 para render nítido en caja de 72x72)
+  const petName = report?.petName || report?.title || 'Mascota';
+  const photo = report ? (getPrimaryImage(report.mediaUrl) || ((report as any).images && (report as any).images.length > 0 ? (report as any).images[0] : null)) : null;
+
+  // 1. Precarga inmediata de la fotografía para que nunca se capture en negro
+  useEffect(() => {
+    if (!photo) {
+      setIsPhotoReady(true);
+      return;
+    }
+
+    setIsPhotoReady(false);
+    const img = new Image();
+    img.src = photo;
+
+    const onDone = () => setIsPhotoReady(true);
+
+    if (img.complete && img.naturalWidth > 0) {
+      onDone();
+    } else {
+      img.onload = onDone;
+      img.onerror = onDone;
+    }
+
+    if (img.decode) {
+      img.decode().then(onDone).catch(onDone);
+    }
+  }, [photo]);
+
+  // 2. Generar código QR de alta resolución (200x200 para render nítido en caja de 72x72)
   useEffect(() => {
     if (report && isOpen && reportUrl) {
       QRCode.toDataURL(reportUrl, {
@@ -47,24 +76,37 @@ export default function FlyerModal({ report, isOpen, onClose }: FlyerModalProps)
   const isAdoption = report.type === 'ADOPTION';
   const isSighting = report.type === 'SIGHTING';
 
-  const petName = report.petName || report.title || 'Mascota';
-  const photo = getPrimaryImage(report.mediaUrl) || ((report as any).images && (report as any).images.length > 0 ? (report as any).images[0] : null);
-
   const shareTitle = isLost
     ? `🚨 ¡SE BUSCA! ${petName} en San Luis Potosí`
     : isAdoption
     ? `🐶 En Adopción Responsable: ${petName}`
     : `👀 Avistamiento Comunitario: ${petName}`;
 
-  const shareText = `${shareTitle}\n\n${report.description ? report.description.slice(0, 150) + '...' : ''}\n\nContacto: ${report.contactPhone || 'Comunidad SLP'}\n\nVer ubicación en el mapa interactivo:\n${reportUrl}`;
-
-  // Función auxiliar robusta para capturar el elemento sin cortes y garantizando foto y QR
+  // Función auxiliar robusta para capturar el elemento garantizando foto y QR sin fondo negro
   const captureFlyerBlob = async (): Promise<{ dataUrl: string; file: File }> => {
     if (!flyerRef.current) throw new Error('No se encontró el contenedor del flyer');
 
     const node = flyerRef.current;
 
-    // 1. Si el QR aún no ha terminado de generarse en estado, lo generamos de inmediato
+    // A. Si hay foto, esperamos activamente a que termine de cargarse y decodificarse en GPU
+    if (photo) {
+      setStatusMessage('Optimizando fotografía del perrito...');
+      const img = new Image();
+      img.src = photo;
+      if (!img.complete) {
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          setTimeout(resolve, 2000);
+        });
+      }
+      if (img.decode) {
+        await img.decode().catch(() => {});
+      }
+      setIsPhotoReady(true);
+    }
+
+    // B. Si el QR aún no ha terminado de generarse en estado, lo generamos de inmediato
     let activeQr = qrCodeDataUrl;
     if (!activeQr && reportUrl) {
       try {
@@ -74,33 +116,36 @@ export default function FlyerModal({ report, isOpen, onClose }: FlyerModalProps)
           color: { dark: '#18181b', light: '#FFFFFF' },
         });
         setQrCodeDataUrl(activeQr);
-        // Breve pausa para que React pinte el QR en el DOM
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, 100));
       } catch (err) {
         console.error('Error generando QR durante captura:', err);
       }
     }
 
-    // 2. Aseguramos que todas las imágenes internas (foto y QR) estén totalmente cargadas
+    // C. Aseguramos que todas las etiquetas <img> en el DOM del flyer estén 100% listas
     const imgElements = Array.from(node.querySelectorAll('img'));
     await Promise.all(
-      imgElements.map((img) => {
-        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-        return new Promise<void>((resolve) => {
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-          setTimeout(resolve, 800);
-        });
+      imgElements.map(async (img) => {
+        if (!img.complete) {
+          await new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            setTimeout(resolve, 1500);
+          });
+        }
+        if (img.decode) {
+          await img.decode().catch(() => {});
+        }
       })
     );
 
-    // Medición exacta sin recortes
+    // D. Pausa de 120ms para asegurar sincronización completa con el buffer de video antes del snapshot
+    await new Promise((r) => setTimeout(r, 120));
+
+    // E. Medición exacta del flyer
     const width = node.offsetWidth || 360;
     const height = node.scrollHeight || node.offsetHeight;
 
-    // IMPORTANTE: cacheBust DEBE ser false.
-    // Si cacheBust es true, html-to-image agrega "?timestamp" al final de Data URIs base64,
-    // lo que invalida el string base64 y hace que la foto desaparezca completamente.
     const dataUrl = await toJpeg(node, {
       quality: 0.95,
       pixelRatio: 2,
@@ -137,7 +182,7 @@ export default function FlyerModal({ report, isOpen, onClose }: FlyerModalProps)
       link.href = dataUrl;
       link.click();
 
-      setStatusMessage('✅ ¡Cartel descargado en JPG! Guardado en tu galería con foto y QR listos.');
+      setStatusMessage('✅ ¡Cartel descargado en JPG! Guardado en tu galería listo para compartir.');
       setTimeout(() => setStatusMessage(null), 5000);
     } catch (err: any) {
       console.error('Error al generar JPG del cartel:', err);
@@ -187,15 +232,47 @@ export default function FlyerModal({ report, isOpen, onClose }: FlyerModalProps)
     }
   };
 
-  // 3. Compartir en Facebook (Feed / Muro / Grupos)
-  const handleShareFacebook = () => {
-    const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(reportUrl)}&quote=${encodeURIComponent(shareTitle)}`;
-    window.open(fbUrl, '_blank', 'noopener,noreferrer,width=600,height=500');
+  // 3. Compartir en Facebook (Funciona tanto en celular como en computadora)
+  const handleShareFacebook = async () => {
+    const isMobile = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    // En celular (iOS / Android), el Web Share API abre la hoja nativa del celular.
+    // Al pulsar "Facebook" o "Grupos de Facebook", abre la app oficial en modo "Crear publicación"
+    // con la tarjeta del perrito pre-cargada para que el usuario escriba su texto y etiquete a quien quiera.
+    if (isMobile && typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: `🚨 Por favor ayúdanos compartiendo este reporte de ${petName} en San Luis Potosí. Toda ayuda cuenta:`,
+          url: reportUrl,
+        });
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    // En computadora (Laptop/PC) o navegadores de escritorio sin Web Share,
+    // abrimos el diálogo web oficial de Facebook sin parámetros deprecados (&quote) que rompen en móviles
+    const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(reportUrl)}`;
+    window.open(fbUrl, '_blank', 'noopener,noreferrer');
   };
 
-  // 4. Compartir por WhatsApp
+  // 4. Compartir por WhatsApp (Texto conciso y optimizado para el límite de 700 caracteres de WhatsApp)
   const handleShareWhatsApp = () => {
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    const shortDesc = report.description
+      ? report.description.trim().slice(0, 80) + (report.description.length > 80 ? '...' : '')
+      : '';
+
+    const waLines = [
+      shareTitle,
+      shortDesc ? `📝 ${shortDesc}` : '',
+      report.contactPhone ? `📞 Contacto: ${report.contactPhone}` : '',
+      `📍 Ver mapa y fotos: ${reportUrl}`,
+    ].filter(Boolean);
+
+    const waText = waLines.join('\n\n');
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`;
     window.open(waUrl, '_blank');
   };
 
@@ -277,12 +354,24 @@ export default function FlyerModal({ report, isOpen, onClose }: FlyerModalProps)
               style={{ height: '260px', minHeight: '260px', maxHeight: '260px' }}
             >
               {photo ? (
-                <img
-                  src={photo}
-                  alt={petName}
-                  className="w-full h-full object-contain pointer-events-none p-2"
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                />
+                <>
+                  <img
+                    src={photo}
+                    alt={petName}
+                    loading="eager"
+                    decoding="sync"
+                    onLoad={() => setIsPhotoReady(true)}
+                    className="w-full h-full object-contain pointer-events-none p-2"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  />
+                  {!isPhotoReady && (
+                    <div className="absolute inset-0 bg-zinc-950/80 flex items-center justify-center">
+                      <span className="text-xs text-zinc-400 font-bold animate-pulse">
+                        Cargando fotografía...
+                      </span>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center p-6 flex flex-col items-center justify-center">
                   <span className="text-6xl block mb-2">🐶</span>
@@ -407,8 +496,8 @@ export default function FlyerModal({ report, isOpen, onClose }: FlyerModalProps)
               onClick={handleShareToStories}
               className="py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-95 cursor-pointer disabled:opacity-60"
             >
-              <span className="text-base">📸</span>
-              <span>Compartir en Historias</span>
+              <span className="text-base">{isProcessing ? '⏳' : '📸'}</span>
+              <span>{isProcessing ? 'Preparando...' : 'Compartir en Historias'}</span>
             </button>
 
             {/* Botón Principal 2: Descargar Flyer JPG */}
@@ -418,8 +507,8 @@ export default function FlyerModal({ report, isOpen, onClose }: FlyerModalProps)
               onClick={handleDownloadJpg}
               className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-95 cursor-pointer disabled:opacity-60"
             >
-              <span className="text-base">📥</span>
-              <span>Descargar Flyer JPG</span>
+              <span className="text-base">{isProcessing ? '⏳' : '📥'}</span>
+              <span>{isProcessing ? 'Generando...' : 'Descargar Flyer JPG'}</span>
             </button>
           </div>
 
