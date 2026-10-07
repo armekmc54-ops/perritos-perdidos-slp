@@ -21,6 +21,7 @@ import {
 import { useSession } from 'next-auth/react';
 import AuthModal from '../components/AuthModal';
 import ProfileModal from '../components/ProfileModal';
+import FlyerModal from '../components/FlyerModal';
 import Footer from '../components/Footer';
 
 // Cargamos el mapa dinámicamente sin SSR para evitar fallos de Leaflet en Node
@@ -424,6 +425,7 @@ export default function Home() {
   const { data: session } = useSession();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [flyerReport, setFlyerReport] = useState<Report | null>(null);
   const [currentTheme, setCurrentTheme] = useState('arena');
   const [isMounted, setIsMounted] = useState(false);
 
@@ -470,6 +472,27 @@ export default function Home() {
       const data = await getReports();
       setReports(data);
       setErrorMessage(null);
+
+      // Si viene un reportId en la URL (?reportId=...), enfocarlo directamente
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const targetId = params.get('reportId');
+        if (targetId) {
+          const found = data.find((r) => r.id === targetId);
+          if (found) {
+            setSelectedReportId(found.id);
+            setMapCenter(getOptimalFocusCenter(found.latitude, found.longitude));
+            setMapZoom(16);
+            if (window.innerWidth < 1024) {
+              setMobileTab('map');
+            }
+            setTimeout(() => {
+              const el = document.getElementById(`report-card-${found.id}`);
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 600);
+          }
+        }
+      }
     } catch (err: any) {
       console.error('Error al cargar reportes:', err);
       setErrorMessage(
@@ -884,7 +907,8 @@ export default function Home() {
       setIsModalOpen(false);
       resetFormState();
 
-      alert('🐾 ¡Reporte publicado con éxito! Ya está visible en el mapa y la comunidad.');
+      // Abrimos automáticamente el cartel oficial descargable para invitar al usuario a compartirlo en historias
+      setFlyerReport(created);
     } catch (err: any) {
       console.error('Error al guardar reporte:', err);
       alert(`Hubo un error al guardar el reporte: ${err.message || 'Verifica la conexión'}`);
@@ -1395,6 +1419,7 @@ export default function Home() {
               currentUserId={(session?.user as any)?.id || undefined}
               currentUserPhone={(session?.user as any)?.phone || undefined}
               isAdmin={(session?.user as any)?.role === 'ADMIN'}
+              onOpenFlyer={(rep) => setFlyerReport(rep)}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-carbon/60">
@@ -1705,6 +1730,19 @@ export default function Home() {
                             <span>📱</span> WhatsApp
                           </a>
                         )}
+
+                        {/* Botón de Compartir Cartel / Flyer en Redes */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFlyerReport(report);
+                          }}
+                          className="flex-1 bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-90 active:scale-95 text-white text-xs font-bold py-1 px-2 rounded-lg transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                          title="Descargar Cartel JPG y compartir en Historias"
+                        >
+                          <span>📢</span> Compartir
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -2315,6 +2353,7 @@ export default function Home() {
             setMobileTab('map');
           }
         }}
+        onOpenFlyer={(report) => setFlyerReport(report)}
       />
 
       {/* MODAL PARA ENVIAR MENSAJE DIRECTO EN PLATAFORMA */}
@@ -2565,6 +2604,13 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Modal del Cartel Oficial Descargable / Compartir en Historias */}
+      <FlyerModal
+        report={flyerReport}
+        isOpen={Boolean(flyerReport)}
+        onClose={() => setFlyerReport(null)}
+      />
 
       {/* Footer Comunitario con Marcas y Donaciones */}
       <Footer />

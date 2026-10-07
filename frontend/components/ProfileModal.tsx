@@ -32,6 +32,7 @@ interface ProfileModalProps {
   onReportDeleted?: (reportId: string) => void;
   onTriangulateReport?: (lostReport: Report, sightings: Report[], triangulationData?: TriangulationData) => void;
   onEditReport?: (report: Report) => void;
+  onOpenFlyer?: (report: Report) => void;
   initialTab?: 'notifications' | 'reports' | 'settings';
 }
 
@@ -67,6 +68,7 @@ export default function ProfileModal({
   onReportDeleted,
   onTriangulateReport,
   onEditReport,
+  onOpenFlyer,
   initialTab = 'notifications',
 }: ProfileModalProps) {
   const { data: session, update } = useSession();
@@ -1118,6 +1120,19 @@ export default function ProfileModal({
                               title="Editar datos, fotos o recompensa de mi reporte"
                             >
                               <span>✏️</span> Editar
+                            </button>
+                          )}
+                          {onOpenFlyer && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onOpenFlyer(r);
+                                onClose();
+                              }}
+                              className="bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-90 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                              title="Descargar Cartel JPG y compartir en Historias"
+                            >
+                              <span>📢</span> Cartel
                             </button>
                           )}
                           <button

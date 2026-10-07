@@ -242,6 +242,7 @@ interface MapProps {
   currentUserId?: string;
   currentUserPhone?: string;
   isAdmin?: boolean;
+  onOpenFlyer?: (report: Report) => void;
 }
 
 function MapPopupMedia({
@@ -408,6 +409,7 @@ export default function Map({
   currentUserId,
   currentUserPhone,
   isAdmin = false,
+  onOpenFlyer,
 }: MapProps) {
   const selectedReport = reports.find((r) => r.id === selectedReportId);
 
@@ -682,7 +684,7 @@ export default function Map({
                       );
                     })()}
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {onOpenMessageModal && (
                         <button
                           type="button"
@@ -709,6 +711,20 @@ export default function Map({
                         >
                           <span>📱</span> WhatsApp
                         </a>
+                      )}
+
+                      {onOpenFlyer && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenFlyer(report);
+                          }}
+                          className="flex-1 bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-90 active:scale-95 text-white text-[10px] font-bold py-1 px-1.5 rounded-lg shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                          title="Descargar Cartel JPG y compartir en Historias"
+                        >
+                          <span>📢</span> Cartel
+                        </button>
                       )}
                     </div>
                   </div>

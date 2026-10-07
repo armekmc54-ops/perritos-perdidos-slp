@@ -203,6 +203,17 @@ export const getReports = async (filters?: { type?: string; status?: string }): 
   return response.json();
 };
 
+// Obtener un solo reporte por su ID
+export const getReportById = async (id: string): Promise<Report | null> => {
+  try {
+    const response = await customFetch(`${getBaseUrl()}/reports/${id}`);
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
+  }
+};
+
 // Función para guardar un nuevo reporte
 export const createReport = async (reportData: CreateReportInput): Promise<Report> => {
   const response = await customFetch(`${getBaseUrl()}/reports`, {
