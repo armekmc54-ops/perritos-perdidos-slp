@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -410,6 +410,40 @@ export default function Map({
       ]
     : [];
 
+  // Separar visualmente marcadores que compartan exactamente las mismas coordenadas para evitar que se sobrepongan
+  const displayReports = useMemo(() => {
+    const coordCount: Record<string, number> = {};
+    const coordIndex: Record<string, number> = {};
+
+    reports.forEach((r) => {
+      const key = `${r.latitude.toFixed(5)},${r.longitude.toFixed(5)}`;
+      coordCount[key] = (coordCount[key] || 0) + 1;
+    });
+
+    return reports.map((r) => {
+      const key = `${r.latitude.toFixed(5)},${r.longitude.toFixed(5)}`;
+      const totalAtCoord = coordCount[key] || 1;
+      if (totalAtCoord <= 1) {
+        return r;
+      }
+
+      const idx = coordIndex[key] || 0;
+      coordIndex[key] = idx + 1;
+
+      // Distribuir en un radio de ~30 metros alrededor de la coordenada compartida
+      const angle = (2 * Math.PI * idx) / totalAtCoord;
+      const radius = 0.00035;
+      const latOffset = radius * Math.cos(angle);
+      const lngOffset = (radius * Math.sin(angle)) / Math.cos((r.latitude * Math.PI) / 180);
+
+      return {
+        ...r,
+        latitude: r.latitude + latOffset,
+        longitude: r.longitude + lngOffset,
+      };
+    });
+  }, [reports]);
+
   return (
     <div className="w-full h-full relative">
       {/* Banner flotante cuando está en modo selección de ubicación */}
@@ -540,7 +574,7 @@ export default function Map({
         )}
 
         {/* Pines de los reportes reales */}
-        {reports.map((report) => {
+        {displayReports.map((report) => {
           const isSelected = selectedReportId === report.id;
           const pin = getReportIcon(report, isSelected);
 

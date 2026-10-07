@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   UnauthorizedException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,6 +34,17 @@ export class ReportsService {
 
   // Guardar un nuevo reporte en la base de datos con visión IA y metadatos
   async create(data: CreateReportDto) {
+    if (
+      data.latitude === undefined ||
+      data.latitude === null ||
+      data.longitude === undefined ||
+      data.longitude === null ||
+      isNaN(Number(data.latitude)) ||
+      isNaN(Number(data.longitude))
+    ) {
+      throw new BadRequestException('La ubicación en el mapa (latitud y longitud) es obligatoria para publicar un reporte.');
+    }
+
     let reportUserId: string | null = null;
 
     // Si viene el correo del usuario autenticado, asociamos el reporte a su perfil
@@ -280,9 +292,19 @@ export class ReportsService {
       throw new NotFoundException(`Reporte con ID ${id} no encontrado.`);
     }
 
-    // Comprobar permisos: Dueño legítimo o Rol ADMIN
-    const isOwner = report.userId === requester.id;
-    const isAdmin = requester.role === Role.ADMIN;
+    // Comprobar permisos: Dueño legítimo (por ID, correo o teléfono de contacto) o Administrador
+    const cleanContactPhone = report.contactPhone?.replace(/\D/g, '');
+    const cleanRequesterPhone = requester.phone?.replace(/\D/g, '');
+    const isPhoneOwner =
+      Boolean(cleanContactPhone && cleanRequesterPhone &&
+      cleanContactPhone.length >= 10 && cleanRequesterPhone.length >= 10 &&
+      cleanContactPhone.slice(-10) === cleanRequesterPhone.slice(-10));
+
+    const isOwner =
+      report.userId === requester.id ||
+      report.user?.email.toLowerCase() === requester.email.toLowerCase() ||
+      isPhoneOwner;
+    const isAdmin = requester.role === Role.ADMIN || requester.email.toLowerCase() === 'armekmc54@gmail.com';
 
     if (!isOwner && !isAdmin) {
       throw new ForbiddenException(
@@ -447,11 +469,29 @@ export class ReportsService {
         throw new UnauthorizedException('Usuario no registrado.');
       }
 
-      const isOwner = exists.userId === requester.id || exists.user?.email.toLowerCase() === requester.email.toLowerCase();
+      const cleanContactPhone = exists.contactPhone?.replace(/\D/g, '');
+      const cleanRequesterPhone = requester.phone?.replace(/\D/g, '');
+      const isPhoneOwner =
+        Boolean(cleanContactPhone && cleanRequesterPhone &&
+        cleanContactPhone.length >= 10 && cleanRequesterPhone.length >= 10 &&
+        cleanContactPhone.slice(-10) === cleanRequesterPhone.slice(-10));
+
+      const isOwner =
+        exists.userId === requester.id ||
+        exists.user?.email.toLowerCase() === requester.email.toLowerCase() ||
+        isPhoneOwner;
       const isAdmin = requester.role === Role.ADMIN || requester.email.toLowerCase() === 'armekmc54@gmail.com';
 
       if (!isOwner && !isAdmin) {
         throw new ForbiddenException('No tienes permisos para modificar este reporte.');
+      }
+
+      // Si fue reconocido por coincidencia de teléfono, asociarlo permanentemente
+      if (isPhoneOwner && exists.userId !== requester.id) {
+        await this.prisma.report.update({
+          where: { id: exists.id },
+          data: { userId: requester.id },
+        });
       }
     }
 
@@ -528,8 +568,18 @@ export class ReportsService {
         throw new UnauthorizedException('Usuario no registrado.');
       }
 
-      const isOwner = report.userId === requester.id || report.user?.email.toLowerCase() === requester.email.toLowerCase();
-      const isAdmin = requester.role === Role.ADMIN;
+      const cleanContactPhone = report.contactPhone?.replace(/\D/g, '');
+      const cleanRequesterPhone = requester.phone?.replace(/\D/g, '');
+      const isPhoneOwner =
+        Boolean(cleanContactPhone && cleanRequesterPhone &&
+        cleanContactPhone.length >= 10 && cleanRequesterPhone.length >= 10 &&
+        cleanContactPhone.slice(-10) === cleanRequesterPhone.slice(-10));
+
+      const isOwner =
+        report.userId === requester.id ||
+        report.user?.email.toLowerCase() === requester.email.toLowerCase() ||
+        isPhoneOwner;
+      const isAdmin = requester.role === Role.ADMIN || requester.email.toLowerCase() === 'armekmc54@gmail.com';
 
       if (!isOwner && !isAdmin) {
         throw new ForbiddenException('No tienes permisos para eliminar este reporte.');

@@ -381,6 +381,7 @@ export default function Home() {
   const [editingReport, setEditingReport] = useState<Report | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPickingOnMap, setIsPickingOnMap] = useState(false);
+  const [hasPickedLocation, setHasPickedLocation] = useState(false);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isCompressingPhotos, setIsCompressingPhotos] = useState(false);
   const [lightboxData, setLightboxData] = useState<{ images: string[]; index: number } | null>(null);
@@ -569,6 +570,7 @@ export default function Home() {
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
         }));
+        setHasPickedLocation(true);
         setUserCoords({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
@@ -685,6 +687,7 @@ export default function Home() {
   const resetFormState = () => {
     setEditingReport(null);
     setImagePreviews([]);
+    setHasPickedLocation(false);
     setFormData({
       petName: '',
       type: 'LOST',
@@ -708,6 +711,7 @@ export default function Home() {
     setEditingReport(report);
     const existingImgs = getReportImages(report.mediaUrl);
     setImagePreviews(existingImgs);
+    setHasPickedLocation(true);
 
     setFormData({
       petName: report.petName || report.title || '',
@@ -743,6 +747,11 @@ export default function Home() {
     e.preventDefault();
     if (!formData.description.trim()) {
       alert('Por favor ingresa una descripción para ayudar a identificar al perrito.');
+      return;
+    }
+
+    if (!editingReport && !hasPickedLocation) {
+      alert('📍 Es obligatorio marcar la ubicación en el mapa o usar tu ubicación actual para que las personas sepan dónde está el perrito.');
       return;
     }
 
@@ -852,8 +861,19 @@ export default function Home() {
       return;
     }
 
-    const isOwner = report.user?.email?.toLowerCase() === session.user.email?.toLowerCase();
-    if (!isOwner) {
+    const isAdmin = (session.user as any)?.role === 'ADMIN';
+    const userPhoneClean = ((session.user as any)?.phone || '').replace(/\D/g, '');
+    const reportPhoneClean = (report.contactPhone || '').replace(/\D/g, '');
+    const isPhoneOwner =
+      Boolean(userPhoneClean.length >= 10 && reportPhoneClean.length >= 10 &&
+      userPhoneClean.slice(-10) === reportPhoneClean.slice(-10));
+
+    const isOwner =
+      report.user?.email?.toLowerCase() === session.user.email?.toLowerCase() ||
+      report.userId === (session.user as any)?.id ||
+      isPhoneOwner;
+
+    if (!isAdmin && !isOwner) {
       alert(
         'Únicamente el dueño que publicó este reporte o un administrador pueden marcarlo como resuelto y validar los puntos de rescate.'
       );
@@ -876,9 +896,16 @@ export default function Home() {
     }
 
     const isAdmin = (session.user as any)?.role === 'ADMIN';
+    const userPhoneClean = ((session.user as any)?.phone || '').replace(/\D/g, '');
+    const reportPhoneClean = (report.contactPhone || '').replace(/\D/g, '');
+    const isPhoneOwner =
+      Boolean(userPhoneClean.length >= 10 && reportPhoneClean.length >= 10 &&
+      userPhoneClean.slice(-10) === reportPhoneClean.slice(-10));
+
     const isOwner =
       report.user?.email?.toLowerCase() === session.user.email?.toLowerCase() ||
-      report.userId === (session.user as any)?.id;
+      report.userId === (session.user as any)?.id ||
+      isPhoneOwner;
 
     if (!isAdmin && !isOwner) {
       alert('🔒 Únicamente el autor original de la publicación o un Administrador pueden eliminar este reporte.');
@@ -972,10 +999,17 @@ export default function Home() {
       setIsAuthModalOpen(true);
       return;
     }
+    const userPhoneClean = ((session.user as any)?.phone || '').replace(/\D/g, '');
+    const reportPhoneClean = (report.contactPhone || '').replace(/\D/g, '');
+    const isPhoneOwner =
+      Boolean(userPhoneClean.length >= 10 && reportPhoneClean.length >= 10 &&
+      userPhoneClean.slice(-10) === reportPhoneClean.slice(-10));
+
     const isOwner =
       Boolean(session.user.email &&
       (report.user?.email?.toLowerCase() === session.user.email.toLowerCase() ||
-       report.userId === (session.user as any)?.id));
+       report.userId === (session.user as any)?.id ||
+       isPhoneOwner));
     if (isOwner) {
       alert('Esta es tu propia publicación comunitaria.');
       return;
@@ -1501,10 +1535,17 @@ export default function Home() {
                           {/* Botón de Editar y Eliminar Reporte (Visible para el Dueño o un Administrador) */}
                           {(() => {
                             const isAdmin = (session?.user as any)?.role === 'ADMIN';
+                            const userPhoneClean = ((session?.user as any)?.phone || '').replace(/\D/g, '');
+                            const reportPhoneClean = (report.contactPhone || '').replace(/\D/g, '');
+                            const isPhoneOwner =
+                              Boolean(userPhoneClean.length >= 10 && reportPhoneClean.length >= 10 &&
+                              userPhoneClean.slice(-10) === reportPhoneClean.slice(-10));
+
                             const isOwner =
                               Boolean(session?.user?.email &&
                               (report.user?.email?.toLowerCase() === session?.user?.email?.toLowerCase() ||
-                                report.userId === (session?.user as any)?.id));
+                                report.userId === (session?.user as any)?.id ||
+                                isPhoneOwner));
                             if (!isAdmin && !isOwner) return null;
 
                             return (
@@ -2073,16 +2114,28 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Selección de Ubicación */}
+              {/* Selección de Ubicación Obligatoria */}
               <div>
-                <label className="block text-xs font-bold text-theme-main uppercase tracking-wider mb-1.5">
-                  Ubicación en el Mapa *
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-theme-main uppercase tracking-wider">
+                    Ubicación en el Mapa *
+                  </label>
+                  {hasPickedLocation || editingReport ? (
+                    <span className="text-[11px] font-bold text-esperanza flex items-center gap-1">
+                      <span>✓</span> Ubicación fijada
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-bold text-amber-500 animate-pulse flex items-center gap-1">
+                      <span>⚠️</span> Obligatoria
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={handleUseCurrentGPS}
-                    className="flex-1 bg-theme-input hover:opacity-80 text-theme-main border border-theme text-xs font-bold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5"
+                    className="flex-1 bg-theme-input hover:opacity-80 text-theme-main border border-theme text-xs font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5"
                   >
                     <span>📍</span> Usar mi ubicación actual
                   </button>
@@ -2093,14 +2146,48 @@ export default function Home() {
                       setIsPickingOnMap(true);
                       setMobileTab('map');
                     }}
-                    className="flex-1 bg-confianza/10 text-confianza hover:bg-confianza/20 text-xs font-bold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 border border-confianza/30"
+                    className="flex-1 bg-confianza/10 text-confianza hover:bg-confianza/20 text-xs font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 border border-confianza/30"
                   >
                     <span>🗺️</span> Marcar en el mapa
                   </button>
                 </div>
-                <p className="text-[11px] text-theme-muted mt-1.5">
-                  Coordenadas fijadas: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
-                </p>
+
+                {hasPickedLocation || editingReport ? (
+                  <div className="p-3 rounded-2xl bg-esperanza/10 border border-esperanza/30 flex items-center justify-between gap-2.5 mt-2">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-esperanza font-bold text-base">✅</span>
+                      <div>
+                        <strong className="text-esperanza block font-bold">Ubicación lista</strong>
+                        <span className="text-theme-muted text-[11px]">
+                          Coordenadas: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        setIsPickingOnMap(true);
+                        setMobileTab('map');
+                      }}
+                      className="text-[11px] font-bold text-paliacate hover:underline shrink-0"
+                    >
+                      Cambiar punto
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-2xl bg-amber-500/10 border-2 border-dashed border-amber-500/40 flex items-center gap-2.5 mt-2">
+                    <span className="text-xl shrink-0">📍</span>
+                    <div className="flex-1 text-xs">
+                      <strong className="text-amber-600 dark:text-amber-400 block font-bold">
+                        Ubicación pendiente requerida
+                      </strong>
+                      <span className="text-theme-muted text-[11px]">
+                        Para evitar encimar perritos, presiona "Usar mi ubicación actual" o "Marcar en el mapa".
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Botón de Publicación o Guardar Cambios con Opción de Cancelar */}
@@ -2117,13 +2204,15 @@ export default function Home() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || (!editingReport && !hasPickedLocation)}
                   className="flex-[2] bg-paliacate hover:opacity-95 text-white font-bold py-3 rounded-2xl transition disabled:opacity-50 shadow-lg text-sm sm:text-base active:scale-[0.98] cursor-pointer"
                 >
                   {isSubmitting
                     ? editingReport
                       ? 'Guardando cambios...'
                       : 'Publicando reporte...'
+                    : !editingReport && !hasPickedLocation
+                    ? '📍 Falta fijar ubicación'
                     : editingReport
                     ? '💾 Guardar Cambios'
                     : '🐾 Publicar Reporte'}

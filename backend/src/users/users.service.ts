@@ -145,7 +145,18 @@ export class UsersService {
   // Obtener perfil completo por correo electrónico
   async getProfile(email: string) {
     const normalizedEmail = (email || '').toLowerCase().trim();
-    const user = await this.prisma.user.findUnique({
+    const existing = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Usuario con email ${email} no encontrado`);
+    }
+
+    // Auto-vincular reportes anónimos que coincidan con su teléfono si existen
+    await this.autoLinkAnonymousReports(existing);
+
+    return this.prisma.user.findUnique({
       where: { email: normalizedEmail },
       include: {
         reports: {
@@ -160,12 +171,6 @@ export class UsersService {
         },
       },
     });
-
-    if (!user) {
-      throw new NotFoundException(`Usuario con email ${email} no encontrado`);
-    }
-
-    return user;
   }
 
   // Actualizar datos del perfil (nombre, teléfono público, foto)
