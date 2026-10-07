@@ -99,7 +99,47 @@ export class UsersService {
       });
     }
 
+    // Auto-vincular reportes anónimos previos que hayan usado este mismo número de teléfono
+    await this.autoLinkAnonymousReports(user);
+
     return user;
+  }
+
+  // Helper privado para vincular reportes comunitarios creados previamente al teléfono del usuario
+  private async autoLinkAnonymousReports(user: { id: string; phone?: string | null }) {
+    if (!user.phone) return;
+    const cleanPhone = user.phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) return;
+    const last10 = cleanPhone.slice(-10);
+
+    try {
+      const anonUser = await this.prisma.user.findFirst({
+        where: { email: 'anonimo@slp.com' },
+      });
+      if (!anonUser) return;
+
+      const anonReports = await this.prisma.report.findMany({
+        where: { userId: anonUser.id },
+        select: { id: true, contactPhone: true },
+      });
+
+      const matchingReports = anonReports.filter(
+        (r) => r.contactPhone && r.contactPhone.replace(/\D/g, '').endsWith(last10)
+      );
+
+      for (const report of matchingReports) {
+        await this.prisma.report.update({
+          where: { id: report.id },
+          data: { userId: user.id },
+        });
+        await this.prisma.message.updateMany({
+          where: { reportId: report.id, receiverId: anonUser.id },
+          data: { receiverId: user.id },
+        });
+      }
+    } catch (err) {
+      console.error('Error al auto-vincular reportes anónimos:', err);
+    }
   }
 
   // Obtener perfil completo por correo electrónico
@@ -190,22 +230,9 @@ export class UsersService {
       );
     }
 
-    // 2. Validar si el teléfono ya existe en otra cuenta
-    const allUsers = await this.prisma.user.findMany({
-      select: { id: true, phone: true },
-    });
-    const duplicatePhoneUser = allUsers.find(
-      (u) => u.phone && u.phone.replace(/\D/g, '') === cleanPhone
-    );
-    if (duplicatePhoneUser) {
-      throw new BadRequestException(
-        'Este número de teléfono ya está asociado a otra cuenta registrada. Usa otro teléfono o inicia sesión.'
-      );
-    }
-
-    // 3. Crear el usuario con contraseña cifrada
+    // 2. Crear el usuario con contraseña cifrada (se permite registrar aunque el teléfono ya esté registrado en otra cuenta)
     const isSuperAdmin = normalizedEmail === 'armekmc54@gmail.com';
-    return this.prisma.user.create({
+    const newUser = await this.prisma.user.create({
       data: {
         email: normalizedEmail,
         name: data.name.trim(),
@@ -216,6 +243,11 @@ export class UsersService {
         points: isSuperAdmin ? 1000 : 0,
       },
     });
+
+    // Auto-vincular reportes anónimos previos que coincidan con este número de teléfono
+    await this.autoLinkAnonymousReports(newUser);
+
+    return newUser;
   }
 
   // Verificación de credenciales en inicio de sesión
@@ -255,6 +287,9 @@ export class UsersService {
         data: { passwordHash: hashPassword(data.password) },
       });
     }
+
+    // Auto-vincular reportes anónimos previos
+    await this.autoLinkAnonymousReports(user);
 
     return user;
   }

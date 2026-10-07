@@ -29,24 +29,67 @@ export class MessagesService {
 
     // 2. Identificar al receptor
     let receiverId = data.receiverId;
-    if (!receiverId && data.receiverEmail) {
+    if (!receiverId && data.receiverEmail && data.receiverEmail.toLowerCase().trim() !== 'anonimo@slp.com') {
       const receiver = await this.prisma.user.findUnique({
         where: { email: data.receiverEmail.toLowerCase().trim() },
       });
       if (receiver) receiverId = receiver.id;
     }
 
-    // Si viene reportId y no se especificó receptor, el receptor es el dueño del reporte
-    if (!receiverId && data.reportId) {
+    // Si viene reportId, resolver el dueño del reporte o enlazar por teléfono si el reporte era anónimo
+    if (data.reportId) {
       const report = await this.prisma.report.findUnique({
         where: { id: data.reportId },
-        select: { userId: true },
+        include: { user: true },
       });
-      if (report) receiverId = report.userId;
+      if (report) {
+        // Si el receptor no se ha definido o apunta al usuario anónimo comunitario
+        if (!receiverId || (report.user && report.user.email === 'anonimo@slp.com')) {
+          if (report.contactPhone) {
+            const cleanPhone = report.contactPhone.replace(/\D/g, '');
+            if (cleanPhone.length >= 10) {
+              const last10 = cleanPhone.slice(-10);
+              const usersWithPhone = await this.prisma.user.findMany({
+                where: { phone: { not: null } },
+                select: { id: true, phone: true },
+              });
+              const matchingUser = usersWithPhone.find(
+                (u) => u.phone && u.phone.replace(/\D/g, '').endsWith(last10)
+              );
+              if (matchingUser) {
+                receiverId = matchingUser.id;
+                // Vincular formalmente el reporte para el futuro
+                await this.prisma.report.update({
+                  where: { id: report.id },
+                  data: { userId: matchingUser.id },
+                });
+              }
+            }
+          }
+        }
+        if (!receiverId) {
+          receiverId = report.userId;
+        }
+      }
     }
 
     if (!receiverId) {
-      throw new BadRequestException('No se pudo determinar el destinatario del mensaje');
+      throw new BadRequestException('No se pudo determinar el destinatario del mensaje.');
+    }
+
+    if (receiverId === sender.id) {
+      throw new BadRequestException('No puedes enviarte un mensaje a ti mismo sobre tu propio reporte.');
+    }
+
+    // Validar si el destinatario final sigue siendo la cuenta anónima comunitaria
+    const finalReceiver = await this.prisma.user.findUnique({
+      where: { id: receiverId },
+      select: { email: true },
+    });
+    if (finalReceiver?.email === 'anonimo@slp.com') {
+      throw new BadRequestException(
+        'Esta publicación fue creada anónimamente sin una cuenta registrada. Por favor comunícate directamente mediante el teléfono o WhatsApp publicado.'
+      );
     }
 
     // 3. Crear el mensaje

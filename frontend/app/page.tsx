@@ -727,6 +727,17 @@ export default function Home() {
     setIsModalOpen(true);
   };
 
+  // Abrir modal de creación de reporte asegurando sesión activa
+  const handleOpenCreateReport = () => {
+    if (!session?.user) {
+      setIsAuthModalOpen(true);
+      alert('🐾 Inicia sesión o regístrate para que tu reporte quede vinculado a tu perfil y puedas recibir notificaciones y mensajes en tu buzón.');
+      return;
+    }
+    resetFormState();
+    setIsModalOpen(true);
+  };
+
   // Envío del nuevo reporte o actualización al Backend
   const handleSubmitReport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -961,6 +972,14 @@ export default function Home() {
       setIsAuthModalOpen(true);
       return;
     }
+    const isOwner =
+      Boolean(session.user.email &&
+      (report.user?.email?.toLowerCase() === session.user.email.toLowerCase() ||
+       report.userId === (session.user as any)?.id));
+    if (isOwner) {
+      alert('Esta es tu propia publicación comunitaria.');
+      return;
+    }
     setMessagingReport(report);
     setMessageText(
       `Hola, te contacto por el reporte de "${report.petName || report.title}" en Perritos y Animales Perdidos.`
@@ -974,20 +993,25 @@ export default function Home() {
 
     setIsSendingMessage(true);
     try {
-      await sendMessage({
+      const sent = await sendMessage({
         senderEmail: session.user.email,
         receiverEmail: messagingReport.user?.email,
         reportId: messagingReport.id,
         content: messageText.trim(),
       });
 
-      const recipientName = messagingReport.user?.name || messagingReport.user?.email || 'el dueño del perrito';
+      const recipientName =
+        sent.receiver?.name ||
+        sent.receiver?.email ||
+        (messagingReport.user && messagingReport.user.email !== 'anonimo@slp.com'
+          ? messagingReport.user.name || messagingReport.user.email
+          : 'el dueño del perrito');
       setMessageSuccessBanner(`¡Mensaje enviado a ${recipientName}! Podrás revisar las respuestas en tu buzón.`);
       setMessagingReport(null);
       setMessageText('');
       setTimeout(() => setMessageSuccessBanner(null), 6000);
     } catch (err: any) {
-      alert('Error al enviar mensaje: ' + err.message);
+      alert(err.message || 'Error al enviar mensaje');
     } finally {
       setIsSendingMessage(false);
     }
@@ -1103,10 +1127,7 @@ export default function Home() {
           )}
 
           <button
-            onClick={() => {
-              resetFormState();
-              setIsModalOpen(true);
-            }}
+            onClick={handleOpenCreateReport}
             className="bg-paliacate hover:opacity-90 active:scale-95 transition text-white font-bold px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-lg flex items-center gap-1 text-xs sm:text-sm shrink-0"
           >
             <span className="text-sm sm:text-base leading-none font-extrabold">+</span>
@@ -1284,6 +1305,11 @@ export default function Home() {
               onLocationPicked={(lat, lng) => {
                 setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
                 setIsPickingOnMap(false);
+                if (!session?.user) {
+                  setIsAuthModalOpen(true);
+                  alert('🐾 Inicia sesión o regístrate para que tu reporte quede vinculado a tu perfil y puedas recibir notificaciones y mensajes en tu buzón.');
+                  return;
+                }
                 setIsModalOpen(true);
               }}
               activeTab={mobileTab}
@@ -1365,7 +1391,7 @@ export default function Home() {
                   : 'Sé el primero en reportar un perrito perdido o en adopción en esta zona.'}
               </p>
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={handleOpenCreateReport}
                 className="mt-4 bg-paliacate hover:opacity-90 text-white text-sm font-bold px-5 py-2.5 rounded-full shadow transition"
               >
                 + Crear Nuevo Reporte
@@ -1602,10 +1628,7 @@ export default function Home() {
 
       {/* Botón Flotante para Móviles (+ Reportar) */}
       <button
-        onClick={() => {
-          resetFormState();
-          setIsModalOpen(true);
-        }}
+        onClick={handleOpenCreateReport}
         className="lg:hidden fixed bottom-6 right-6 z-40 bg-paliacate hover:opacity-95 text-white font-bold px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 text-base active:scale-95 transition"
       >
         <span className="text-xl leading-none">+</span> Reportar
@@ -2188,7 +2211,9 @@ export default function Home() {
                 <p className="text-xs text-theme-muted truncate">
                   Para:{' '}
                   <strong>
-                    {messagingReport.user?.name || messagingReport.user?.email || 'Dueño / Rescatista'}
+                    {messagingReport.user && messagingReport.user.email !== 'anonimo@slp.com'
+                      ? messagingReport.user.name || messagingReport.user.email
+                      : 'Dueño / Rescatista'}
                   </strong>
                 </p>
               </div>

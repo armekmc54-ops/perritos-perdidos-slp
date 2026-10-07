@@ -45,7 +45,25 @@ export class ReportsService {
       }
     }
 
-    // Si no está autenticado, buscamos o creamos un usuario anónimo
+    // Si no se vinculó por correo pero viene teléfono de contacto, buscar si pertenece a un usuario registrado
+    if (!reportUserId && data.contactPhone) {
+      const cleanPhone = data.contactPhone.replace(/\D/g, '');
+      if (cleanPhone.length >= 10) {
+        const last10 = cleanPhone.slice(-10);
+        const usersWithPhone = await this.prisma.user.findMany({
+          where: { phone: { not: null } },
+          select: { id: true, phone: true },
+        });
+        const matchingUser = usersWithPhone.find(
+          (u) => u.phone && u.phone.replace(/\D/g, '').endsWith(last10)
+        );
+        if (matchingUser) {
+          reportUserId = matchingUser.id;
+        }
+      }
+    }
+
+    // Si aún no se encontró usuario, asociamos al usuario anónimo comunitario
     if (!reportUserId) {
       let anonUser = await this.prisma.user.findFirst({
         where: { email: 'anonimo@slp.com' },
