@@ -181,7 +181,7 @@ export class UsersService {
       throw new NotFoundException(`Usuario con email ${email} no encontrado`);
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { email: normalizedEmail },
       data: {
         name: data.name !== undefined ? data.name : user.name,
@@ -189,6 +189,12 @@ export class UsersService {
         avatarUrl: data.avatarUrl !== undefined ? data.avatarUrl : user.avatarUrl,
       },
     });
+
+    if (updated.phone) {
+      await this.autoLinkAnonymousReports(updated);
+    }
+
+    return updated;
   }
 
   // Asignar rol de Administrador protegiéndolo con el código 230408

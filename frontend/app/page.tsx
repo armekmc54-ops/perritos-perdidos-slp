@@ -390,7 +390,21 @@ export default function Home() {
   const lightboxTouchStartX = useRef<number | null>(null);
   const lightboxTouchStartY = useRef<number | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    petName: string;
+    type: ReportType;
+    species: Species;
+    customSpecies: string;
+    breed: string;
+    primaryColor: string;
+    size: string;
+    description: string;
+    contactPhone: string;
+    reward: string;
+    mediaUrl: string;
+    latitude: number | null;
+    longitude: number | null;
+  }>({
     petName: '',
     type: 'LOST' as ReportType,
     species: 'DOG' as Species,
@@ -402,8 +416,8 @@ export default function Home() {
     contactPhone: '',
     reward: '',
     mediaUrl: '',
-    latitude: SLP_CENTER[0],
-    longitude: SLP_CENTER[1],
+    latitude: null,
+    longitude: null,
   });
 
   // Autenticación con NextAuth y Perfiles
@@ -489,19 +503,30 @@ export default function Home() {
 
   // Calcular notificaciones pendientes (mensajes y avistamientos) para la campana a primera mano
   useEffect(() => {
-    if (session?.user?.email) {
-      getMessages(session.user.email)
-        .then((msgs) => {
-          const unreadMsgs = msgs.filter(
-            (m) => !m.read && m.receiver.email.toLowerCase() === session.user.email?.toLowerCase()
-          ).length;
-          const sightingsCount = reports.filter((r) => r.type === 'SIGHTING' && r.status === 'ACTIVE').length;
-          setUnreadNotificationsCount(unreadMsgs + (sightingsCount > 0 ? 1 : 0));
-        })
-        .catch(() => {});
-    } else {
-      setUnreadNotificationsCount(0);
-    }
+    let isMounted = true;
+    const fetchUnread = () => {
+      if (session?.user?.email) {
+        getMessages(session.user.email)
+          .then((msgs) => {
+            if (!isMounted) return;
+            const unreadMsgs = msgs.filter(
+              (m) => !m.read && m.receiver.email.toLowerCase() === session.user.email?.toLowerCase()
+            ).length;
+            const sightingsCount = reports.filter((r) => r.type === 'SIGHTING' && r.status === 'ACTIVE').length;
+            setUnreadNotificationsCount(unreadMsgs + (sightingsCount > 0 ? 1 : 0));
+          })
+          .catch(() => {});
+      } else {
+        if (isMounted) setUnreadNotificationsCount(0);
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [session, reports]);
 
   // 2. Filtrado reactivo de reportes
@@ -697,11 +722,11 @@ export default function Home() {
       primaryColor: '',
       size: 'MEDIANO',
       description: '',
-      contactPhone: '',
+      contactPhone: (session?.user as any)?.phone || '',
       reward: '',
       mediaUrl: '',
-      latitude: SLP_CENTER[0],
-      longitude: SLP_CENTER[1],
+      latitude: null,
+      longitude: null,
     });
   };
 
@@ -745,13 +770,30 @@ export default function Home() {
   // Envío del nuevo reporte o actualización al Backend
   const handleSubmitReport = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. OBLIGATORIO: Sesión de usuario
+    if (!session?.user?.email) {
+      setIsAuthModalOpen(true);
+      alert('🔒 Es obligatorio iniciar sesión o crear tu cuenta comunitaria gratuita para publicar un reporte.');
+      return;
+    }
+
+    // 2. OBLIGATORIO: Descripción
     if (!formData.description.trim()) {
       alert('Por favor ingresa una descripción para ayudar a identificar al perrito.');
       return;
     }
 
-    if (!editingReport && !hasPickedLocation) {
-      alert('📍 Es obligatorio marcar la ubicación en el mapa o usar tu ubicación actual para que las personas sepan dónde está el perrito.');
+    // 3. OBLIGATORIO: Teléfono de contacto a 10 dígitos
+    const cleanPhone = (formData.contactPhone || '').replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      alert('📞 Es obligatorio ingresar tu número de teléfono de contacto a 10 dígitos para que las personas puedan comunicarse contigo.');
+      return;
+    }
+
+    // 4. OBLIGATORIO: Ubicación en el mapa
+    if (formData.latitude === null || formData.longitude === null || (!editingReport && !hasPickedLocation)) {
+      alert('📍 Es obligatorio marcar la ubicación en el mapa o usar tu ubicación actual para situar al perrito.');
       return;
     }
 
@@ -792,18 +834,18 @@ export default function Home() {
             primaryColor: formData.primaryColor.trim() || undefined,
             size: formData.size || undefined,
             description: formData.description.trim(),
-            contactPhone: formData.contactPhone.trim() || undefined,
+            contactPhone: cleanPhone,
             reward:
               formData.reward && !isNaN(Number(formData.reward)) && Number(formData.reward) > 0
                 ? Number(formData.reward)
                 : null,
-            userEmail: session?.user?.email || undefined,
+            userEmail: session.user.email,
             mediaUrl: mediaValue,
             images: imagePreviews.length > 0 ? imagePreviews : undefined,
             latitude: formData.latitude,
             longitude: formData.longitude,
           },
-          session?.user?.email || undefined
+          session.user.email
         );
 
         setReports((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
@@ -823,9 +865,9 @@ export default function Home() {
         primaryColor: formData.primaryColor.trim() || undefined,
         size: formData.size || undefined,
         description: formData.description.trim(),
-        contactPhone: formData.contactPhone.trim() || undefined,
+        contactPhone: cleanPhone,
         reward: formData.reward && !isNaN(Number(formData.reward)) && Number(formData.reward) > 0 ? Number(formData.reward) : null,
-        userEmail: session?.user?.email || undefined,
+        userEmail: session.user.email,
         mediaUrl: mediaValue,
         images: imagePreviews.length > 0 ? imagePreviews : undefined,
         latitude: formData.latitude,
@@ -1332,12 +1374,13 @@ export default function Home() {
               onExitTriangulation={() => setTriangulationData(null)}
               isPickingLocation={isPickingOnMap}
               pickedLocation={
-                isPickingOnMap
+                isPickingOnMap && formData.latitude !== null && formData.longitude !== null
                   ? { latitude: formData.latitude, longitude: formData.longitude }
                   : null
               }
               onLocationPicked={(lat, lng) => {
                 setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+                setHasPickedLocation(true);
                 setIsPickingOnMap(false);
                 if (!session?.user) {
                   setIsAuthModalOpen(true);
@@ -1347,6 +1390,11 @@ export default function Home() {
                 setIsModalOpen(true);
               }}
               activeTab={mobileTab}
+              onEditReport={(rep) => handleOpenEdit(rep)}
+              currentUserEmail={session?.user?.email || undefined}
+              currentUserId={(session?.user as any)?.id || undefined}
+              currentUserPhone={(session?.user as any)?.phone || undefined}
+              isAdmin={(session?.user as any)?.role === 'ADMIN'}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-carbon/60">
@@ -1907,22 +1955,24 @@ export default function Home() {
 
               {/* Teléfono / WhatsApp */}
               <div>
-                <label className="block text-xs font-bold text-theme-main uppercase tracking-wider mb-1.5">
-                  {formData.type === 'SIGHTING'
-                    ? 'Teléfono / WhatsApp de Contacto (Opcional)'
-                    : 'Teléfono / WhatsApp de Contacto'}
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-theme-main uppercase tracking-wider">
+                    Teléfono / WhatsApp de Contacto *
+                  </label>
+                  <span className="text-[10px] text-paliacate font-bold">
+                    Obligatorio a 10 dígitos
+                  </span>
+                </div>
                 <input
                   type="tel"
+                  required
                   value={formData.contactPhone}
                   onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
                   placeholder="Ej. 4441234567"
                   className="w-full bg-theme-input border border-theme rounded-xl p-3 text-sm outline-none focus:border-paliacate text-theme-main"
                 />
                 <p className="text-[11px] text-theme-muted mt-1">
-                  {formData.type === 'SIGHTING'
-                    ? 'Permitirá que el dueño te contacte por WhatsApp para agradecerte o pedirte referencias.'
-                    : 'Permitirá que la comunidad te envíe un WhatsApp con 1 toque.'}
+                  Permitirá que la comunidad o el dueño te contacte por WhatsApp o llamada con 1 toque.
                 </p>
               </div>
 
@@ -2159,7 +2209,7 @@ export default function Home() {
                       <div>
                         <strong className="text-esperanza block font-bold">Ubicación lista</strong>
                         <span className="text-theme-muted text-[11px]">
-                          Coordenadas: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                          Coordenadas: {formData.latitude !== null && formData.longitude !== null ? `${formData.latitude.toFixed(4)}, ${formData.longitude.toFixed(4)}` : 'Fijada'}
                         </span>
                       </div>
                     </div>

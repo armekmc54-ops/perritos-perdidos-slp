@@ -145,6 +145,10 @@ export default function ProfileModal({
     if (isOpen) {
       loadProfile();
       loadUserMessages();
+      const interval = setInterval(() => {
+        loadUserMessages();
+      }, 10000);
+      return () => clearInterval(interval);
     }
   }, [session, isOpen]);
 
@@ -1070,7 +1074,7 @@ export default function ProfileModal({
                               <span className="w-2.5 h-2.5 rounded-full bg-paliacate shrink-0"></span>
                               <span className="font-bold text-theme-main">Punto de pérdida original:</span>
                               <span className="text-theme-muted">
-                                {formatRelativeTime(r.createdAt)} ({r.latitude.toFixed(4)}, {r.longitude.toFixed(4)})
+                                {formatRelativeTime(r.createdAt)} ({typeof r.latitude === 'number' && typeof r.longitude === 'number' ? `${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}` : 'Ubicación fijada'})
                               </span>
                             </div>
 

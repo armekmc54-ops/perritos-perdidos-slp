@@ -237,6 +237,11 @@ interface MapProps {
   } | null;
   onExitTriangulation?: () => void;
   activeTab?: string;
+  onEditReport?: (report: Report) => void;
+  currentUserEmail?: string;
+  currentUserId?: string;
+  currentUserPhone?: string;
+  isAdmin?: boolean;
 }
 
 function MapPopupMedia({
@@ -398,6 +403,11 @@ export default function Map({
   triangulationData,
   onExitTriangulation,
   activeTab,
+  onEditReport,
+  currentUserEmail,
+  currentUserId,
+  currentUserPhone,
+  isAdmin = false,
 }: MapProps) {
   const selectedReport = reports.find((r) => r.id === selectedReportId);
 
@@ -640,34 +650,67 @@ export default function Map({
                   </h4>
                   <MapExpandableText text={report.description} />
 
-                  <div className="mt-1.5 pt-1.5 border-t border-theme/40 flex items-center gap-1.5">
-                    {onOpenMessageModal && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenMessageModal(report);
-                        }}
-                        className="flex-1 bg-confianza hover:opacity-90 active:scale-95 text-white text-[10px] font-bold py-1 px-1.5 rounded-lg shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
-                        title="Enviar mensaje en la plataforma"
-                      >
-                        <span>💬</span> Mensaje
-                      </button>
-                    )}
+                  <div className="mt-1.5 pt-1.5 border-t border-theme/40 flex flex-col gap-1.5">
+                    {onEditReport && (() => {
+                      const userPhoneClean = (currentUserPhone || '').replace(/\D/g, '');
+                      const reportPhoneClean = (report.contactPhone || '').replace(/\D/g, '');
+                      const isPhoneOwner = Boolean(
+                        userPhoneClean.length >= 10 &&
+                        reportPhoneClean.length >= 10 &&
+                        userPhoneClean.slice(-10) === reportPhoneClean.slice(-10)
+                      );
+                      const isOwner = Boolean(
+                        currentUserEmail && (
+                          (report.user?.email && report.user.email.toLowerCase() === currentUserEmail.toLowerCase()) ||
+                          report.userId === currentUserId ||
+                          isPhoneOwner
+                        )
+                      );
+                      if (!isAdmin && !isOwner) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditReport(report);
+                          }}
+                          className="w-full bg-paliacate/10 hover:bg-paliacate text-paliacate hover:text-white border border-paliacate/30 text-[10px] font-bold py-1 px-2 rounded-lg transition flex items-center justify-center gap-1 cursor-pointer"
+                          title="Editar los datos, fotos y ubicación de esta publicación"
+                        >
+                          <span>✏️</span> Editar mi publicación
+                        </button>
+                      );
+                    })()}
 
-                    {report.contactPhone && (
-                      <a
-                        href={`https://wa.me/${report.contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                          `Hola, te contacto por el reporte de ${report.petName || report.title} en Perritos Perdidos SLP`
-                        )}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 bg-green-500 hover:bg-green-600 active:scale-95 text-white text-[10px] font-bold py-1 px-1.5 rounded-lg shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
-                        title="WhatsApp"
-                      >
-                        <span>📱</span> WhatsApp
-                      </a>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {onOpenMessageModal && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenMessageModal(report);
+                          }}
+                          className="flex-1 bg-confianza hover:opacity-90 active:scale-95 text-white text-[10px] font-bold py-1 px-1.5 rounded-lg shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                          title="Enviar mensaje en la plataforma"
+                        >
+                          <span>💬</span> Mensaje
+                        </button>
+                      )}
+
+                      {report.contactPhone && (
+                        <a
+                          href={`https://wa.me/${report.contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                            `Hola, te contacto por el reporte de ${report.petName || report.title} en Perritos Perdidos SLP`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 bg-green-500 hover:bg-green-600 active:scale-95 text-white text-[10px] font-bold py-1 px-1.5 rounded-lg shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
+                          title="WhatsApp"
+                        >
+                          <span>📱</span> WhatsApp
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               </Popup>

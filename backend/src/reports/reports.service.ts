@@ -34,6 +34,7 @@ export class ReportsService {
 
   // Guardar un nuevo reporte en la base de datos con visión IA y metadatos
   async create(data: CreateReportDto) {
+    // 1. Ubicación estrictamente obligatoria
     if (
       data.latitude === undefined ||
       data.latitude === null ||
@@ -45,51 +46,35 @@ export class ReportsService {
       throw new BadRequestException('La ubicación en el mapa (latitud y longitud) es obligatoria para publicar un reporte.');
     }
 
-    let reportUserId: string | null = null;
-
-    // Si viene el correo del usuario autenticado, asociamos el reporte a su perfil
-    if (data.userEmail) {
-      const existingUser = await this.prisma.user.findUnique({
-        where: { email: data.userEmail.toLowerCase().trim() },
-      });
-      if (existingUser) {
-        reportUserId = existingUser.id;
-      }
+    // 2. Teléfono de contacto a 10 dígitos estrictamente obligatorio
+    const cleanPhone = (data.contactPhone || '').replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      throw new BadRequestException('El número de teléfono de contacto a 10 dígitos es obligatorio para publicar un reporte.');
     }
 
-    // Si no se vinculó por correo pero viene teléfono de contacto, buscar si pertenece a un usuario registrado
-    if (!reportUserId && data.contactPhone) {
-      const cleanPhone = data.contactPhone.replace(/\D/g, '');
-      if (cleanPhone.length >= 10) {
-        const last10 = cleanPhone.slice(-10);
-        const usersWithPhone = await this.prisma.user.findMany({
-          where: { phone: { not: null } },
-          select: { id: true, phone: true },
-        });
-        const matchingUser = usersWithPhone.find(
-          (u) => u.phone && u.phone.replace(/\D/g, '').endsWith(last10)
-        );
-        if (matchingUser) {
-          reportUserId = matchingUser.id;
-        }
-      }
+    // 3. Inicio de sesión / Cuenta registrada estrictamente obligatorio
+    if (!data.userEmail || !data.userEmail.trim()) {
+      throw new BadRequestException('Es obligatorio iniciar sesión o registrar tu cuenta comunitaria para publicar un reporte.');
     }
 
-    // Si aún no se encontró usuario, asociamos al usuario anónimo comunitario
-    if (!reportUserId) {
-      let anonUser = await this.prisma.user.findFirst({
-        where: { email: 'anonimo@slp.com' },
-      });
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: data.userEmail.toLowerCase().trim() },
+    });
+    if (!existingUser) {
+      throw new BadRequestException('Usuario no registrado. Por favor inicia sesión o crea tu cuenta gratuita.');
+    }
 
-      if (!anonUser) {
-        anonUser = await this.prisma.user.create({
-          data: {
-            email: 'anonimo@slp.com',
-            name: 'Comunidad SLP',
-          },
+    const reportUserId = existingUser.id;
+
+    if (!existingUser.phone && cleanPhone) {
+      try {
+        await this.prisma.user.update({
+          where: { id: existingUser.id },
+          data: { phone: cleanPhone },
         });
+      } catch (e) {
+        this.logger.warn(`No se pudo actualizar teléfono del usuario: ${e}`);
       }
-      reportUserId = anonUser.id;
     }
 
     const title = data.title?.trim() || data.petName?.trim() || 'Reporte de Mascota';
@@ -520,8 +505,8 @@ export class ReportsService {
         ...(data.size !== undefined && { size: data.size }),
         ...(data.aiTags !== undefined && { aiTags: data.aiTags }),
         ...(finalMediaUrl !== undefined && { mediaUrl: finalMediaUrl }),
-        ...(data.latitude !== undefined && { latitude: Number(data.latitude) }),
-        ...(data.longitude !== undefined && { longitude: Number(data.longitude) }),
+        ...(data.latitude !== undefined && data.latitude !== null && !isNaN(Number(data.latitude)) && { latitude: Number(data.latitude) }),
+        ...(data.longitude !== undefined && data.longitude !== null && !isNaN(Number(data.longitude)) && { longitude: Number(data.longitude) }),
       },
       include: {
         user: {
